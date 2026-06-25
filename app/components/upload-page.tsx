@@ -1,8 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { useCandidates } from "../hooks/use-candidates";
+import { useNotifications } from "../hooks/use-notifications";
 import { usePersistentState } from "../hooks/use-persistent-state";
 import {
   analyzeResumeText,
@@ -30,16 +31,33 @@ type UploadFile = {
 const MAX_FILES = 20;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const SUPPORTED_EXTENSIONS = ["pdf", "docx", "txt"];
+const JOB_CONTEXTS = [
+  "Senior Product Designer",
+  "Staff Frontend Engineer",
+  "Senior Product Manager",
+  "Senior Data Scientist",
+  "Senior UX Researcher",
+  "Senior Backend Engineer",
+];
 
 export function UploadPage() {
-  const router = useRouter();
-  const [, setCandidates] = useCandidates();
+  const [candidates, setCandidates] = useCandidates();
+  const [, setNotifications] = useNotifications();
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [dragging, setDragging] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [queueMessage, setQueueMessage] = useState("");
+  const [analysisResult, setAnalysisResult] = useState<{
+    completed: number;
+    failed: number;
+  } | null>(null);
   const [jobContext, setJobContext] = usePersistentState(
     "talentlens-job-context",
     "Senior Product Designer",
+    {
+      validate: (value): value is string =>
+        typeof value === "string" && JOB_CONTEXTS.includes(value),
+    },
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const fileRefs = useRef(new Map<number, File>());
@@ -47,40 +65,49 @@ export function UploadPage() {
   function addFiles(list: FileList | null) {
     if (!list) return;
 
+    setQueueMessage("");
+    setAnalysisResult(null);
+
     const existingNames = new Set(files.map((file) => file.name.toLowerCase()));
     const remainingSlots = Math.max(0, MAX_FILES - files.length);
     const selected = Array.from(list);
-    const added = selected.map((file, index): UploadFile => {
-      const id = Date.now() + index;
-      const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-      let error: string | undefined;
+    if (selected.length > remainingSlots) {
+      setQueueMessage(
+        `${selected.length - remainingSlots} file${selected.length - remainingSlots === 1 ? " was" : "s were"} not added because the queue limit is ${MAX_FILES}.`,
+      );
+    }
 
-      if (index >= remainingSlots) {
-        error = `Maximum ${MAX_FILES} files per queue`;
-      } else if (!SUPPORTED_EXTENSIONS.includes(extension)) {
-        error = "Unsupported file type";
-      } else if (file.size > MAX_FILE_SIZE) {
-        error = "File exceeds the 10 MB limit";
-      } else if (file.size === 0) {
-        error = "File is empty";
-      } else if (existingNames.has(file.name.toLowerCase())) {
-        error = "A file with this name is already queued";
-      }
+    const added = selected
+      .slice(0, remainingSlots)
+      .map((file, index): UploadFile => {
+        const id = Date.now() + index;
+        const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+        let error: string | undefined;
 
-      if (!error) {
-        existingNames.add(file.name.toLowerCase());
-        fileRefs.current.set(id, file);
-      }
+        if (!SUPPORTED_EXTENSIONS.includes(extension)) {
+          error = "Unsupported file type";
+        } else if (file.size > MAX_FILE_SIZE) {
+          error = "File exceeds the 10 MB limit";
+        } else if (file.size === 0) {
+          error = "File is empty";
+        } else if (existingNames.has(file.name.toLowerCase())) {
+          error = "A file with this name is already queued";
+        }
 
-      return {
-        id,
-        name: file.name,
-        size: formatFileSize(file.size),
-        progress: 0,
-        status: error ? "error" : "queued",
-        error,
-      };
-    });
+        if (!error) {
+          existingNames.add(file.name.toLowerCase());
+          fileRefs.current.set(id, file);
+        }
+
+        return {
+          id,
+          name: file.name,
+          size: formatFileSize(file.size),
+          progress: 0,
+          status: error ? "error" : "queued",
+          error,
+        };
+      });
 
     setFiles((current) => [...added, ...current]);
     if (inputRef.current) inputRef.current.value = "";
@@ -92,10 +119,13 @@ export function UploadPage() {
 
     setAnalyzing(true);
     let completed = 0;
+    let failed = 0;
+    let nextCandidateId = Math.max(0, ...candidates.map((candidate) => candidate.id)) + 1;
 
     for (const item of pending) {
       const source = fileRefs.current.get(item.id);
       if (!source) {
+        failed += 1;
         updateFile(item.id, {
           status: "error",
           progress: 0,
@@ -119,9 +149,11 @@ export function UploadPage() {
         const candidate = analyzeResumeText(
           text,
           item.name,
+          item.size,
           jobContext,
-          item.id,
+          nextCandidateId,
         );
+        nextCandidateId += 1;
 
         setCandidates((current) => [
           candidate,
@@ -133,8 +165,22 @@ export function UploadPage() {
           status: "complete",
           progress: 100,
         });
+        setNotifications((current) => [
+          {
+            id: `analysis-${candidate.id}`,
+            title: `${candidate.name} is ready for review`,
+            detail: `Local score ${candidate.score} · ${candidate.targetRole}`,
+            href: `/candidates/${candidate.id}`,
+            read: false,
+            createdAt: new Date().toISOString(),
+          },
+          ...current.filter(
+            (notification) => notification.id !== `analysis-${candidate.id}`,
+          ),
+        ]);
         completed += 1;
       } catch (error) {
+        failed += 1;
         updateFile(item.id, {
           status: "error",
           progress: 0,
@@ -147,7 +193,7 @@ export function UploadPage() {
     }
 
     setAnalyzing(false);
-    if (completed > 0) router.push("/candidates");
+    setAnalysisResult({ completed, failed });
   }
 
   function updateFile(id: number, updates: Partial<UploadFile>) {
@@ -164,6 +210,8 @@ export function UploadPage() {
   function clearFiles() {
     fileRefs.current.clear();
     setFiles([]);
+    setAnalysisResult(null);
+    setQueueMessage("");
   }
 
   const queuedCount = files.filter((file) => file.status === "queued").length;
@@ -237,6 +285,12 @@ export function UploadPage() {
             )}
           </div>
 
+          {queueMessage && (
+            <p className="queue-message" role="status">
+              {queueMessage}
+            </p>
+          )}
+
           <div className="upload-list" aria-live="polite">
             {files.length === 0 ? (
               <div className="empty-state compact">
@@ -297,6 +351,31 @@ export function UploadPage() {
             )}
           </div>
 
+          {analysisResult && (
+            <div
+              className={`analysis-result ${analysisResult.failed ? "has-errors" : ""}`}
+              role="status"
+            >
+              <span>
+                <strong>
+                  {analysisResult.completed} CV
+                  {analysisResult.completed === 1 ? "" : "s"} analyzed
+                </strong>
+                {analysisResult.failed > 0 && (
+                  <small>
+                    {analysisResult.failed} file
+                    {analysisResult.failed === 1 ? "" : "s"} need attention
+                  </small>
+                )}
+              </span>
+              {analysisResult.completed > 0 && (
+                <Link href="/candidates" className="button secondary">
+                  View candidates <Icons.arrowRight size={16} />
+                </Link>
+              )}
+            </div>
+          )}
+
           <div className="upload-footer">
             <span>
               <Icons.sparkles size={16} /> Raw files are processed in memory;
@@ -351,34 +430,22 @@ export function UploadPage() {
             </div>
             <h2>Job context</h2>
             <p>CVs will be evaluated against:</p>
-            <button
-              className="job-selector"
-              onClick={() =>
-                setJobContext((job) =>
-                  job === "Senior Product Designer"
-                    ? "Staff Frontend Engineer"
-                    : "Senior Product Designer",
-                )
-              }
-            >
+            <label className="job-selector">
               <span>
                 <strong>{jobContext}</strong>
                 <small>Local matching profile</small>
               </span>
+              <select
+                value={jobContext}
+                onChange={(event) => setJobContext(event.target.value)}
+                aria-label="Job matching profile"
+              >
+                {JOB_CONTEXTS.map((job) => (
+                  <option key={job}>{job}</option>
+                ))}
+              </select>
               <Icons.chevronDown size={16} />
-            </button>
-            <button
-              className="text-link centered"
-              onClick={() =>
-                setJobContext((job) =>
-                  job === "Senior Product Designer"
-                    ? "Staff Frontend Engineer"
-                    : "Senior Product Designer",
-                )
-              }
-            >
-              Change job context
-            </button>
+            </label>
           </section>
         </aside>
       </div>

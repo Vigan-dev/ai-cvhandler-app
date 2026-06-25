@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useCandidates } from "../hooks/use-candidates";
 import { downloadCsv } from "../utils/download-csv";
@@ -14,6 +15,7 @@ export function CandidateDetailsPage({
 }: {
   candidateId: number;
 }) {
+  const router = useRouter();
   const [candidates, setCandidates, hydrated] = useCandidates();
   const [tab, setTab] = useState<DetailTab>("Overview");
   const candidate = candidates.find((item) => item.id === candidateId);
@@ -38,6 +40,7 @@ export function CandidateDetailsPage({
       </section>
     );
   }
+  const selectedCandidate = candidate;
 
   const scoreLabel =
     candidate.score >= 85
@@ -54,28 +57,55 @@ export function CandidateDetailsPage({
         : `The profile currently falls below the matching threshold for ${targetRole}.`;
 
   function exportAnalysis() {
-    downloadCsv(`${candidate.name.toLowerCase().replaceAll(" ", "-")}-analysis.csv`, [
+    downloadCsv(`${selectedCandidate.name.toLowerCase().replaceAll(" ", "-")}-analysis.csv`, [
       ["Field", "Value"],
-      ["Candidate", candidate.name],
-      ["Current role", candidate.role],
+      ["Candidate", selectedCandidate.name],
+      ["Current role", selectedCandidate.role],
       ["Target role", targetRole],
-      ["Location", candidate.location],
-      ["Overall score", candidate.score],
-      ["Skills score", candidate.skills],
-      ["Experience score", candidate.experience],
-      ["Education score", candidate.education],
-      ["Recommendation", candidate.status],
-      ["Skills detected", candidate.tags.join(", ")],
-      ["Source file", candidate.sourceFile ?? "Demo candidate"],
+      ["Location", selectedCandidate.location],
+      ["Overall score", selectedCandidate.score],
+      ["Skills score", selectedCandidate.skills],
+      ["Experience score", selectedCandidate.experience],
+      ["Education score", selectedCandidate.education],
+      ["Recommendation", selectedCandidate.status],
+      ["Stage", selectedCandidate.stage],
+      ["Skills detected", selectedCandidate.tags.join(", ")],
+      ["Source file", selectedCandidate.sourceFile ?? "Demo candidate"],
+      ["Notes", selectedCandidate.notes ?? ""],
     ]);
   }
 
-  function recommendInterview() {
+  function moveToInterview() {
     setCandidates((current) =>
       current.map((item) =>
-        item.id === candidate.id ? { ...item, status: "Hire" } : item,
+        item.id === selectedCandidate.id
+          ? { ...item, stage: "Interview" }
+          : item,
       ),
     );
+  }
+
+  function updateNotes(notes: string) {
+    setCandidates((current) =>
+      current.map((item) =>
+        item.id === selectedCandidate.id ? { ...item, notes } : item,
+      ),
+    );
+  }
+
+  function removeCandidate() {
+    if (
+      !window.confirm(
+        `Remove ${selectedCandidate.name} from local storage? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
+    setCandidates((current) =>
+      current.filter((item) => item.id !== selectedCandidate.id),
+    );
+    router.replace("/candidates");
   }
 
   return (
@@ -100,16 +130,16 @@ export function CandidateDetailsPage({
                 {candidate.location}
               </span>
               {candidate.email && (
-                <span>
+                <a href={`mailto:${candidate.email}`}>
                   <Icons.mail size={14} />
                   {candidate.email}
-                </span>
+                </a>
               )}
               {candidate.phone && (
-                <span>
+                <a href={`tel:${candidate.phone}`}>
                   <Icons.phone size={14} />
                   {candidate.phone}
-                </span>
+                </a>
               )}
             </div>
           </div>
@@ -118,8 +148,15 @@ export function CandidateDetailsPage({
           <button className="button secondary" onClick={exportAnalysis}>
             <Icons.download size={17} /> Export analysis
           </button>
-          <button className="button primary" onClick={recommendInterview}>
-            Recommend interview <Icons.arrowRight size={17} />
+          <button
+            className="button primary"
+            onClick={moveToInterview}
+            disabled={candidate.stage === "Interview"}
+          >
+            {candidate.stage === "Interview"
+              ? "Interview stage"
+              : "Move to interview"}{" "}
+            <Icons.arrowRight size={17} />
           </button>
         </div>
       </section>
@@ -130,6 +167,8 @@ export function CandidateDetailsPage({
             <button
               key={item}
               role="tab"
+              id={`candidate-tab-${item.toLowerCase()}`}
+              aria-controls={`candidate-panel-${item.toLowerCase()}`}
               aria-selected={tab === item}
               className={tab === item ? "active" : ""}
               onClick={() => setTab(item)}
@@ -143,7 +182,12 @@ export function CandidateDetailsPage({
       <div className="details-layout">
         <div className="details-main">
           {tab === "Overview" && (
-            <section className="card ai-summary-card">
+            <section
+              className="card ai-summary-card"
+              id="candidate-panel-overview"
+              role="tabpanel"
+              aria-labelledby="candidate-tab-overview"
+            >
               <div className="ai-summary-heading">
                 <div>
                   <span className="ai-icon">
@@ -189,7 +233,12 @@ export function CandidateDetailsPage({
           )}
 
           {tab === "Experience" && (
-            <section className="card experience-card">
+            <section
+              className="card experience-card"
+              id="candidate-panel-experience"
+              role="tabpanel"
+              aria-labelledby="candidate-tab-experience"
+            >
               <div className="section-header">
                 <div>
                   <h2>Experience detected</h2>
@@ -222,7 +271,12 @@ export function CandidateDetailsPage({
           )}
 
           {tab === "Skills" && (
-            <section className="card skills-card">
+            <section
+              className="card skills-card"
+              id="candidate-panel-skills"
+              role="tabpanel"
+              aria-labelledby="candidate-tab-skills"
+            >
               <div className="section-header">
                 <div>
                   <h2>Skills detected</h2>
@@ -261,16 +315,28 @@ export function CandidateDetailsPage({
           )}
 
           {tab === "Notes" && (
-            <section className="card experience-card">
-              <div className="empty-state compact">
-                <span>
-                  <Icons.file size={24} />
-                </span>
-                <h3>No notes yet</h3>
-                <p>
-                  Notes are not generated automatically from private CV content.
-                </p>
+            <section
+              className="card notes-card"
+              id="candidate-panel-notes"
+              role="tabpanel"
+              aria-labelledby="candidate-tab-notes"
+            >
+              <div className="section-header">
+                <div>
+                  <h2>Recruiter notes</h2>
+                  <p>Saved only in this browser</p>
+                </div>
               </div>
+              <label className="notes-field">
+                <span className="sr-only">Notes for {candidate.name}</span>
+                <textarea
+                  value={candidate.notes ?? ""}
+                  onChange={(event) => updateNotes(event.target.value)}
+                  placeholder="Add interview observations, follow-up questions, or review notes..."
+                  maxLength={4000}
+                />
+                <small>{(candidate.notes ?? "").length}/4000</small>
+              </label>
             </section>
           )}
         </div>
@@ -306,8 +372,14 @@ export function CandidateDetailsPage({
               {recommendationCopy} This recommendation should support, not
               replace, human review.
             </p>
-            <button className="button success" onClick={recommendInterview}>
-              Recommend interview
+            <button
+              className="button success"
+              onClick={moveToInterview}
+              disabled={candidate.stage === "Interview"}
+            >
+              {candidate.stage === "Interview"
+                ? "Already in interview"
+                : "Move to interview"}
             </button>
           </section>
           <section className="card source-card">
@@ -326,10 +398,17 @@ export function CandidateDetailsPage({
                 <dd>{targetRole}</dd>
               </div>
               <div>
+                <dt>Stage</dt>
+                <dd>{candidate.stage}</dd>
+              </div>
+              <div>
                 <dt>Storage</dt>
                 <dd>Browser localStorage</dd>
               </div>
             </dl>
+            <button className="text-button danger-link" onClick={removeCandidate}>
+              Remove candidate
+            </button>
           </section>
         </aside>
       </div>

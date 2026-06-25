@@ -28,7 +28,7 @@ export function PageHeader({
 export function StatusBadge({ status }: { status: CandidateStatus }) {
   return (
     <span className={`status-badge status-${status.toLowerCase()}`}>
-      <span />
+      <span aria-hidden="true" />
       {status}
     </span>
   );
@@ -42,7 +42,10 @@ export function Avatar({
   size?: "small" | "medium" | "large";
 }) {
   return (
-    <span className={`avatar avatar-${candidate.color} avatar-${size}`}>
+    <span
+      className={`avatar avatar-${candidate.color} avatar-${size}`}
+      aria-hidden="true"
+    >
       {candidate.avatar}
     </span>
   );
@@ -57,18 +60,25 @@ export function ScoreRing({
   size?: number;
   label?: string;
 }) {
-  const tone = value >= 85 ? "high" : value >= 70 ? "medium" : "low";
+  const normalizedValue = Math.min(100, Math.max(0, value));
+  const tone =
+    normalizedValue >= 85
+      ? "high"
+      : normalizedValue >= 70
+        ? "medium"
+        : "low";
   return (
     <div
       className={`score-ring score-${tone}`}
       style={{
         width: size,
         height: size,
-        background: `conic-gradient(var(--score-color) ${value * 3.6}deg, var(--track) 0deg)`,
+        background: `conic-gradient(var(--score-color) ${normalizedValue * 3.6}deg, var(--track) 0deg)`,
       }}
-      aria-label={`${label ?? "Score"}: ${value} out of 100`}
+      role="img"
+      aria-label={`${label ?? "Score"}: ${normalizedValue} out of 100`}
     >
-      <span>{value}</span>
+      <span aria-hidden="true">{normalizedValue}</span>
     </div>
   );
 }

@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TalentLens Frontend
 
-## Getting Started
+Next.js application for browser-local CV analysis and candidate management.
 
-First, run the development server:
+The interface uses system fonts and does not require a network request for font
+assets.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Architecture
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Raw CV files remain in browser memory during analysis.
+- PDF, DOCX, and TXT extraction runs in the browser.
+- Rule-based candidate matching runs locally.
+- Derived candidate profiles, workflow stages, notes, filters, and preferences
+  are stored in browser `localStorage`.
+- The Express server is optional for the current workflow and exposes only
+  service information and health endpoints.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Local data
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The application does not persist raw CV files. Candidate metadata remains tied
+to the current browser profile. Clearing site data removes locally stored
+profiles and preferences.
 
-## Learn More
+## Supported documents
 
-To learn more about Next.js, take a look at the following resources:
+- Text-based PDF files
+- DOCX files using standard ZIP/XML compression
+- Plain-text TXT files
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Scanned PDFs require OCR and are reported as unsupported rather than producing
+invented analysis.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Quality commands
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The package defines development, lint, build, and start scripts in
+`package.json`. Run them only when appropriate for your environment.

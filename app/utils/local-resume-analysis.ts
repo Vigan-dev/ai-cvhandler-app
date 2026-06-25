@@ -1,6 +1,7 @@
 import type { Candidate, CandidateStatus } from "../data/mock-data";
 
 const MAX_TEXT_LENGTH = 80_000;
+const MAX_DECOMPRESSED_BYTES = 16 * 1024 * 1024;
 
 const skillCatalog = [
   "React",
@@ -52,14 +53,24 @@ export async function extractResumeText(file: File): Promise<string> {
   const extension = file.name.split(".").pop()?.toLowerCase();
 
   if (extension === "txt") {
-    return normalizeText(await file.text());
+    const text = await file.text();
+    if (text.includes("\u0000")) {
+      throw new Error("This TXT file appears to contain binary data");
+    }
+    return normalizeText(text);
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (extension === "docx") {
+    if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
+      throw new Error("This file is not a valid DOCX document");
+    }
     return extractDocxText(bytes);
   }
   if (extension === "pdf") {
+    if (new TextDecoder("latin1").decode(bytes.slice(0, 5)) !== "%PDF-") {
+      throw new Error("This file is not a valid PDF document");
+    }
     return extractPdfText(bytes);
   }
 
@@ -69,6 +80,7 @@ export async function extractResumeText(file: File): Promise<string> {
 export function analyzeResumeText(
   text: string,
   sourceFile: string,
+  sourceSize: string,
   targetRole: string,
   id: number,
 ): Candidate {
@@ -143,6 +155,7 @@ export function analyzeResumeText(
     experience,
     education,
     status,
+    stage: status === "Reject" ? "Rejected" : "New",
     submitted: "Just now",
     tags: tags.slice(0, 6),
     strengths,
@@ -150,8 +163,11 @@ export function analyzeResumeText(
       ? weaknesses
       : ["Review role-specific expectations during the interview"],
     sourceFile,
+    sourceSize,
     experienceYears,
     educationText,
+    notes: "",
+    analyzedAt: new Date().toISOString(),
     summary: `${name} shows a ${score >= 85 ? "strong" : score >= 70 ? "moderate" : "limited"} match for ${targetRole}. The local analysis found ${matchedTargetSkills.length} priority skills and ${experienceYears || "some"} years of referenced experience.`,
   };
 }
@@ -287,6 +303,7 @@ function decodePdfHex(value: string) {
 }
 
 function findZipEntry(bytes: Uint8Array, targetName: string) {
+  if (bytes.byteLength < 22) return null;
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const eocdOffset = findSignature(view, 0x06054b50);
   if (eocdOffset < 0) return null;
@@ -296,6 +313,7 @@ function findZipEntry(bytes: Uint8Array, targetName: string) {
   let offset = centralDirectoryOffset;
 
   for (let index = 0; index < totalEntries; index += 1) {
+    if (offset < 0 || offset + 46 > view.byteLength) return null;
     if (view.getUint32(offset, true) !== 0x02014b50) return null;
     const compressionMethod = view.getUint16(offset + 10, true);
     const compressedSize = view.getUint32(offset + 20, true);
@@ -308,10 +326,20 @@ function findZipEntry(bytes: Uint8Array, targetName: string) {
     );
 
     if (name === targetName) {
+      if (localHeaderOffset < 0 || localHeaderOffset + 30 > view.byteLength) {
+        return null;
+      }
+      if (view.getUint32(localHeaderOffset, true) !== 0x04034b50) return null;
       const localNameLength = view.getUint16(localHeaderOffset + 26, true);
       const localExtraLength = view.getUint16(localHeaderOffset + 28, true);
       const dataOffset =
         localHeaderOffset + 30 + localNameLength + localExtraLength;
+      if (
+        dataOffset < 0 ||
+        dataOffset + compressedSize > bytes.byteLength
+      ) {
+        return null;
+      }
       return {
         compressionMethod,
         data: bytes.slice(dataOffset, dataOffset + compressedSize),
@@ -338,7 +366,29 @@ async function decompress(
   const stream = new Blob([bytes as BlobPart])
     .stream()
     .pipeThrough(new DecompressionStream(format));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalLength = 0;
+
+  while (true) {
+    const result = await reader.read();
+    if (result.done) break;
+
+    totalLength += result.value.byteLength;
+    if (totalLength > MAX_DECOMPRESSED_BYTES) {
+      await reader.cancel();
+      throw new Error("The document expands beyond the safe local size limit");
+    }
+    chunks.push(result.value);
+  }
+
+  const output = new Uint8Array(totalLength);
+  let offset = 0;
+  chunks.forEach((chunk) => {
+    output.set(chunk, offset);
+    offset += chunk.byteLength;
+  });
+  return output;
 }
 
 function findName(lines: string[], sourceFile: string) {
@@ -346,7 +396,7 @@ function findName(lines: string[], sourceFile: string) {
     (line) =>
       line.length >= 3 &&
       line.length <= 60 &&
-      /^[A-Za-zÀ-ž][A-Za-zÀ-ž .'-]+$/.test(line) &&
+      /^\p{L}[\p{L} .'-]+$/u.test(line) &&
       !/(resume|curriculum|vitae|profile|summary|experience)/i.test(line),
   );
   if (candidate) return titleCase(candidate);

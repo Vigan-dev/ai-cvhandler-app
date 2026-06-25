@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { useCandidates } from "../hooks/use-candidates";
+import { useNotifications } from "../hooks/use-notifications";
 import { usePersistentState } from "../hooks/use-persistent-state";
 import { Icons } from "./icons";
 
@@ -15,21 +16,24 @@ const navItems = [
   { label: "Analytics", href: "/analytics", icon: Icons.chart },
 ];
 
-const initialNotifications = [
-  { id: 1, title: "Maya Chen is ready for review", detail: "AI score 94 · 12 min ago", href: "/candidates/1", read: false },
-  { id: 2, title: "3 CVs finished processing", detail: "Upload queue · 34 min ago", href: "/upload", read: false },
-  { id: 3, title: "Weekly analytics are available", detail: "Pipeline report · 2 hrs ago", href: "/analytics", read: true },
-];
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [candidates] = useCandidates();
-  const [theme, setTheme] = usePersistentState<"light" | "dark">("talentlens-theme", "light");
-  const [globalQuery, setGlobalQuery] = usePersistentState("talentlens-candidate-query", "");
-  const [notifications, setNotifications] = usePersistentState("talentlens-notifications", initialNotifications);
+  const [theme, setTheme] = usePersistentState<"light" | "dark">(
+    "talentlens-theme",
+    "light",
+    { validate: (value): value is "light" | "dark" => value === "light" || value === "dark" },
+  );
+  const [globalQuery, setGlobalQuery] = usePersistentState(
+    "talentlens-candidate-query",
+    "",
+    { validate: (value): value is string => typeof value === "string" },
+  );
+  const [notifications, setNotifications] = useNotifications();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [storageError, setStorageError] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
 
@@ -61,6 +65,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("pointerdown", handlePointerDown);
     };
+  }, []);
+
+  useEffect(() => {
+    function handleStorageFailure() {
+      setStorageError(true);
+    }
+
+    window.addEventListener("talentlens-storage-error", handleStorageFailure);
+    return () =>
+      window.removeEventListener(
+        "talentlens-storage-error",
+        handleStorageFailure,
+      );
   }, []);
 
   function submitSearch(event: FormEvent) {
@@ -106,8 +123,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="sidebar-bottom">
           <div className="usage-card">
             <div className="usage-icon"><Icons.sparkles size={17} /></div>
-            <div><strong>Monthly analysis</strong><span>752 of 1,000 CVs</span></div>
-            <div className="usage-track"><span style={{ width: "75.2%" }} /></div>
+            <div><strong>Local workspace</strong><span>{candidates.length} candidate profiles</span></div>
+            <div className="usage-track"><span style={{ width: `${Math.min(100, candidates.length * 5)}%` }} /></div>
             <Link href="/analytics">View usage</Link>
           </div>
           <Link href="/analytics" className="profile-switcher">
@@ -147,13 +164,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className="icon-button notification-button"
                 aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
                 aria-expanded={notificationsOpen}
+                aria-controls="notification-panel"
                 onClick={() => setNotificationsOpen((open) => !open)}
               >
                 <Icons.bell size={19} />
                 {unreadCount > 0 && <span />}
               </button>
               {notificationsOpen && (
-                <section className="notification-panel" aria-label="Notifications">
+                <section id="notification-panel" className="notification-panel" aria-label="Notifications">
                   <div className="notification-header">
                     <div><strong>Notifications</strong><span>{unreadCount} unread</span></div>
                     <button onClick={() => setNotifications((items) => items.map((item) => ({ ...item, read: true })))}>Mark all read</button>
@@ -182,6 +200,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
         <main id="main-content" className="page-container page-transition" key={pathname}>{children}</main>
+        {storageError && (
+          <div className="storage-alert" role="alert">
+            <span>Local changes could not be saved. Check browser storage permissions or available space.</span>
+            <button aria-label="Dismiss storage warning" onClick={() => setStorageError(false)}>
+              <Icons.close size={16} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

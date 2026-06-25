@@ -1,4 +1,5 @@
 export type CandidateStatus = "Hire" | "Review" | "Reject";
+export type CandidateStage = "New" | "Review" | "Interview" | "Rejected";
 
 export type Candidate = {
   id: number;
@@ -15,6 +16,7 @@ export type Candidate = {
   experience: number;
   education: number;
   status: CandidateStatus;
+  stage: CandidateStage;
   submitted: string;
   tags: string[];
   strengths: string[];
@@ -23,6 +25,9 @@ export type Candidate = {
   summary?: string;
   experienceYears?: number;
   educationText?: string;
+  notes?: string;
+  analyzedAt?: string;
+  sourceSize?: string;
 };
 
 export const candidates: Candidate[] = [
@@ -41,6 +46,7 @@ export const candidates: Candidate[] = [
     experience: 91,
     education: 88,
     status: "Hire",
+    stage: "Interview",
     submitted: "12 min ago",
     tags: ["Figma", "Design Systems", "Research"],
     strengths: ["Exceptional design systems experience", "Strong product thinking", "Clear stakeholder communication"],
@@ -49,6 +55,7 @@ export const candidates: Candidate[] = [
     educationText: "BFA, Interaction Design",
     summary:
       "Maya is a strong match for the Senior Product Designer role, with relevant design-system leadership, product thinking, and user-research experience.",
+    analyzedAt: "2026-06-24T10:48:00.000Z",
   },
   {
     id: 2,
@@ -64,6 +71,7 @@ export const candidates: Candidate[] = [
     experience: 93,
     education: 79,
     status: "Hire",
+    stage: "Review",
     submitted: "34 min ago",
     tags: ["React", "TypeScript", "Architecture"],
     strengths: ["Deep React architecture expertise", "Proven technical leadership", "Strong accessibility background"],
@@ -72,6 +80,7 @@ export const candidates: Candidate[] = [
     educationText: "BSc, Computer Science",
     summary:
       "Daniel is a strong match for the Staff Frontend Engineer role, with deep React architecture, accessibility, and technical-leadership experience.",
+    analyzedAt: "2026-06-24T10:26:00.000Z",
   },
   {
     id: 3,
@@ -87,6 +96,7 @@ export const candidates: Candidate[] = [
     experience: 86,
     education: 84,
     status: "Review",
+    stage: "Review",
     submitted: "1 hr ago",
     tags: ["Strategy", "Analytics", "B2B SaaS"],
     strengths: ["Strong metrics-driven approach", "Excellent B2B experience", "Compelling product portfolio"],
@@ -95,6 +105,7 @@ export const candidates: Candidate[] = [
     educationText: "MBA, Product Strategy",
     summary:
       "Sofia is a promising match for a senior product role, with strong B2B strategy and analytics experience, but her people-management depth needs review.",
+    analyzedAt: "2026-06-24T09:00:00.000Z",
   },
   {
     id: 4,
@@ -110,6 +121,7 @@ export const candidates: Candidate[] = [
     experience: 78,
     education: 92,
     status: "Review",
+    stage: "New",
     submitted: "2 hrs ago",
     tags: ["Python", "ML", "SQL"],
     strengths: ["Advanced ML foundations", "Relevant research background"],
@@ -118,6 +130,7 @@ export const candidates: Candidate[] = [
     educationText: "MSc, Data Science",
     summary:
       "Lucas has strong machine-learning and academic foundations, but needs further evaluation of production deployment experience.",
+    analyzedAt: "2026-06-24T08:00:00.000Z",
   },
   {
     id: 5,
@@ -133,6 +146,7 @@ export const candidates: Candidate[] = [
     experience: 72,
     education: 85,
     status: "Review",
+    stage: "New",
     submitted: "Yesterday",
     tags: ["Research", "Usability", "B2C"],
     strengths: ["Diverse research methodologies", "Strong qualitative synthesis"],
@@ -141,6 +155,7 @@ export const candidates: Candidate[] = [
     educationText: "MA, Human-Computer Interaction",
     summary:
       "Amelia demonstrates broad qualitative research capability, with quantitative methods and recent portfolio depth requiring further review.",
+    analyzedAt: "2026-06-23T11:00:00.000Z",
   },
   {
     id: 6,
@@ -156,6 +171,7 @@ export const candidates: Candidate[] = [
     experience: 64,
     education: 55,
     status: "Reject",
+    stage: "Rejected",
     submitted: "Yesterday",
     tags: ["Node.js", "Postgres", "AWS"],
     strengths: ["Solid backend fundamentals"],
@@ -164,28 +180,6 @@ export const candidates: Candidate[] = [
     educationText: "BSc, Software Engineering",
     summary:
       "Noah has relevant backend fundamentals, but his current seniority and distributed-systems experience do not yet meet the target role.",
+    analyzedAt: "2026-06-23T09:00:00.000Z",
   },
-];
-
-export const recentUploads = [
-  { file: "maya-chen-cv.pdf", candidate: "Maya Chen", size: "2.4 MB", time: "12 min ago", status: "Analyzed" },
-  { file: "daniel-okafor-resume.pdf", candidate: "Daniel Okafor", size: "1.8 MB", time: "34 min ago", status: "Analyzed" },
-  { file: "sofia-rivera-cv.docx", candidate: "Sofia Rivera", size: "986 KB", time: "1 hr ago", status: "Processing" },
-  { file: "lucas-martin-resume.pdf", candidate: "Lucas Martin", size: "3.1 MB", time: "2 hrs ago", status: "Analyzed" },
-];
-
-export const funnel = [
-  { label: "CVs received", value: 1248, percent: 100, color: "var(--brand)" },
-  { label: "AI screened", value: 1064, percent: 85, color: "#766fd0" },
-  { label: "Shortlisted", value: 412, percent: 33, color: "#918dbd" },
-  { label: "Interviewed", value: 186, percent: 15, color: "#aaa7b6" },
-  { label: "Offers", value: 48, percent: 4, color: "#c4c2ca" },
-];
-
-export const topSkills = [
-  { name: "React", count: 428, percent: 92 },
-  { name: "TypeScript", count: 386, percent: 83 },
-  { name: "Product Strategy", count: 341, percent: 73 },
-  { name: "Figma", count: 296, percent: 64 },
-  { name: "Python", count: 264, percent: 57 },
 ];

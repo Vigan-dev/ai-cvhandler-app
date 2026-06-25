@@ -1,21 +1,11 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import { AppShell } from "./components/app-shell";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "TalentLens — AI CV Intelligence",
-  description: "AI-powered candidate analysis and recruitment workspace.",
+  title: "TalentLens — Local CV Intelligence",
+  description:
+    "Browser-local CV analysis and candidate management without remote storage.",
 };
 
 export default function RootLayout({
@@ -27,8 +17,15 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable}`}
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var t=JSON.parse(localStorage.getItem('talentlens-theme'));if(t==='dark'||t==='light')document.documentElement.dataset.theme=t}catch(e){}",
+          }}
+        />
+      </head>
       <body>
         <AppShell>{children}</AppShell>
       </body>
