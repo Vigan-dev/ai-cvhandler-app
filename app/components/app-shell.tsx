@@ -13,7 +13,9 @@ const navItems = [
   { label: "Dashboard", href: "/", icon: Icons.grid },
   { label: "Upload CVs", href: "/upload", icon: Icons.upload },
   { label: "Candidates", href: "/candidates", icon: Icons.users },
+  { label: "Job Profiles", href: "/jobs", icon: Icons.briefcase },
   { label: "Analytics", href: "/analytics", icon: Icons.chart },
+  { label: "Settings", href: "/settings", icon: Icons.settings },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {

@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { CandidateStatus } from "../data/mock-data";
 import { useCandidates } from "../hooks/use-candidates";
+import {
+  useJobProfiles,
+  useSelectedJobProfileId,
+} from "../hooks/use-job-profiles";
 import { usePersistentState } from "../hooks/use-persistent-state";
 import { downloadCsv } from "../utils/download-csv";
 import { Avatar, PageHeader, ScoreRing, StatusBadge } from "./ui";
@@ -11,6 +15,8 @@ import { Icons } from "./icons";
 
 export function CandidatesPage() {
   const [candidates] = useCandidates();
+  const [jobProfiles] = useJobProfiles();
+  const [selectedJobId] = useSelectedJobProfileId();
   const [query, setQuery] = usePersistentState(
     "talentlens-candidate-query",
     "",
@@ -44,8 +50,10 @@ export function CandidatesPage() {
     "Score: high to low",
     { validate: isSortOption },
   );
-  const [jobContext] = usePersistentState("talentlens-job-context", "Senior Product Designer");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const selectedJob =
+    jobProfiles.find((profile) => profile.id === selectedJobId) ??
+    jobProfiles[0];
   const roles = [
     "All roles",
     ...new Set(
@@ -119,7 +127,7 @@ export function CandidatesPage() {
       <PageHeader
         eyebrow="Candidate intelligence"
         title="Candidate results"
-        description={`${candidates.length} candidates stored locally. Current matching profile: ${jobContext}.`}
+        description={`${candidates.length} candidates stored locally. Current matching profile: ${selectedJob?.name ?? "None"}.`}
         actions={
           <>
             <button className="button secondary" onClick={exportCandidates} disabled={filtered.length === 0}><Icons.download size={17} /> Export</button>

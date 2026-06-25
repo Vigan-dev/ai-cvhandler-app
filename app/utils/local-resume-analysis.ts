@@ -1,4 +1,12 @@
-import type { Candidate, CandidateStatus } from "../data/mock-data";
+import {
+  normalizeWeights,
+  type JobProfile,
+} from "../data/job-profiles.ts";
+import type {
+  AnalysisConfidence,
+  Candidate,
+  CandidateStatus,
+} from "../data/mock-data.ts";
 
 const MAX_TEXT_LENGTH = 80_000;
 const MAX_DECOMPRESSED_BYTES = 16 * 1024 * 1024;
@@ -13,7 +21,6 @@ const skillCatalog = [
   "C#",
   "SQL",
   "Postgres",
-  "MongoDB",
   "AWS",
   "Azure",
   "Docker",
@@ -28,25 +35,48 @@ const skillCatalog = [
   "Agile",
   "Leadership",
   "Accessibility",
+  "Testing",
+  "Architecture",
+  "Statistics",
+  "Usability",
+  "Workshop Facilitation",
+  "A/B Testing",
+  "B2B SaaS",
+  "Prototyping",
 ];
 
-const jobSkills: Record<string, string[]> = {
-  "Senior Product Designer": [
-    "Figma",
-    "Design Systems",
-    "User Research",
-    "Product Strategy",
-    "Leadership",
-    "Accessibility",
-  ],
-  "Staff Frontend Engineer": [
-    "React",
-    "TypeScript",
-    "JavaScript",
-    "Accessibility",
-    "Leadership",
-    "Node.js",
-  ],
+const skillAliases: Record<string, string[]> = {
+  React: ["react", "react.js", "reactjs"],
+  TypeScript: ["typescript", "ts"],
+  JavaScript: ["javascript", "js", "ecmascript"],
+  "Node.js": ["node.js", "nodejs", "node js"],
+  Python: ["python"],
+  Java: ["java"],
+  "C#": ["c#", "c sharp"],
+  SQL: ["sql", "structured query language"],
+  Postgres: ["postgres", "postgresql"],
+  AWS: ["aws", "amazon web services"],
+  Azure: ["azure", "microsoft azure"],
+  Docker: ["docker", "containers"],
+  Kubernetes: ["kubernetes", "k8s"],
+  Figma: ["figma"],
+  "Design Systems": ["design system", "design systems"],
+  "User Research": ["user research", "ux research", "customer research"],
+  "Product Strategy": ["product strategy", "product vision", "roadmapping"],
+  Analytics: ["analytics", "product analytics", "web analytics"],
+  "Machine Learning": ["machine learning", "ml"],
+  "Data Analysis": ["data analysis", "data analytics"],
+  Agile: ["agile", "scrum", "kanban"],
+  Leadership: ["leadership", "team lead", "mentoring", "managed a team"],
+  Accessibility: ["accessibility", "wcag", "a11y"],
+  Testing: ["testing", "unit tests", "integration tests", "test automation"],
+  Architecture: ["architecture", "system design", "technical design"],
+  Statistics: ["statistics", "statistical"],
+  Usability: ["usability", "usability testing"],
+  "Workshop Facilitation": ["workshop facilitation", "facilitated workshops"],
+  "A/B Testing": ["a/b testing", "ab testing", "experimentation"],
+  "B2B SaaS": ["b2b saas", "enterprise saas"],
+  Prototyping: ["prototyping", "prototype", "wireframing"],
 };
 
 export async function extractResumeText(file: File): Promise<string> {
@@ -81,7 +111,7 @@ export function analyzeResumeText(
   text: string,
   sourceFile: string,
   sourceSize: string,
-  targetRole: string,
+  jobProfile: JobProfile,
   id: number,
 ): Candidate {
   const normalized = normalizeText(text).slice(0, MAX_TEXT_LENGTH);
@@ -91,60 +121,126 @@ export function analyzeResumeText(
 
   const lines = normalized.split("\n").map((line) => line.trim()).filter(Boolean);
   const name = findName(lines, sourceFile);
-  const role = findRole(lines, targetRole);
+  const role = findRole(lines, jobProfile.name);
   const email = normalized.match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i)?.[0];
   const phone = normalized.match(/(?:\+\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3}[\s.-]?\d{3,4}/)?.[0];
   const location = findLocation(lines);
   const experienceYears = findExperienceYears(normalized);
   const tags = findSkills(normalized);
   const educationText = findEducation(normalized);
-  const targetSkills = jobSkills[targetRole] ?? skillCatalog.slice(0, 8);
-  const matchedTargetSkills = targetSkills.filter((skill) =>
-    includesTerm(normalized, skill),
+  const matchedRequiredSkills = jobProfile.requiredSkills.filter((skill) =>
+    matchesSkill(normalized, skill),
   );
-
-  const skills = clamp(
-    45 + matchedTargetSkills.length * 8 + Math.min(tags.length, 8) * 2,
-    45,
-    98,
+  const missingRequiredSkills = jobProfile.requiredSkills.filter(
+    (skill) => !matchedRequiredSkills.includes(skill),
   );
-  const experience = clamp(
-    48 + Math.min(experienceYears, 10) * 5 + countImpactSignals(normalized) * 2,
-    45,
-    97,
+  const matchedOptionalSkills = jobProfile.optionalSkills.filter((skill) =>
+    matchesSkill(normalized, skill),
   );
-  const education = educationText ? 82 : 58;
-  const score = Math.round(skills * 0.45 + experience * 0.4 + education * 0.15);
+  const requiredRatio = ratio(
+    matchedRequiredSkills.length,
+    jobProfile.requiredSkills.length,
+    1,
+  );
+  const optionalRatio = ratio(
+    matchedOptionalSkills.length,
+    jobProfile.optionalSkills.length,
+    1,
+  );
+  const skills = Math.round(
+    clamp(requiredRatio * 80 + optionalRatio * 15 + Math.min(tags.length, 10), 0, 100),
+  );
+  const experience =
+    experienceYears > 0
+      ? Math.round(
+          clamp(
+            ratio(
+              experienceYears,
+              Math.max(1, jobProfile.minimumExperienceYears),
+              1,
+            ) *
+              85 +
+              Math.min(countImpactSignals(normalized) * 3, 15),
+            0,
+            100,
+          ),
+        )
+      : 35;
+  const educationKeywordMatches = jobProfile.educationKeywords.filter(
+    (keyword) => matchesPhrase(normalized, keyword),
+  );
+  const education =
+    jobProfile.educationKeywords.length === 0
+      ? educationText
+        ? 85
+        : 65
+      : educationKeywordMatches.length > 0
+        ? 95
+        : educationText
+          ? 60
+          : 25;
+  const impactSignalCount = countImpactSignals(normalized);
+  const impact = Math.round(clamp(impactSignalCount * 12.5, 0, 100));
+  const weights = normalizeWeights(jobProfile.weights);
+  const score = Math.round(
+    (skills * weights.skills +
+      experience * weights.experience +
+      education * weights.education +
+      impact * weights.impact) /
+      100,
+  );
   const status: CandidateStatus =
-    score >= 85 ? "Hire" : score >= 70 ? "Review" : "Reject";
+    score >= 80 && requiredRatio >= 0.65
+      ? "Hire"
+      : score >= 58
+        ? "Review"
+        : "Reject";
+  const analysisConfidence = getAnalysisConfidence({
+    email,
+    experienceYears,
+    educationText,
+    detectedSkillCount: tags.length,
+    textLength: normalized.length,
+  });
 
   const strengths = [
-    matchedTargetSkills.length
-      ? `Matches ${matchedTargetSkills.length} priority skills for ${targetRole}`
+    matchedRequiredSkills.length
+      ? `Matches ${matchedRequiredSkills.length} of ${jobProfile.requiredSkills.length} required skills for ${jobProfile.name}`
       : "Relevant transferable experience was detected",
     experienceYears > 0
       ? `${experienceYears}+ years of experience referenced`
       : "Practical experience is described in the CV",
-    countImpactSignals(normalized) > 0
-      ? "Includes measurable outcomes or delivery impact"
+    impactSignalCount > 0
+      ? `Includes ${impactSignalCount} measurable outcome or delivery signals`
       : "Background is clearly structured",
   ];
 
   const weaknesses = [
-    matchedTargetSkills.length < Math.ceil(targetSkills.length / 2)
-      ? "Several priority job skills were not explicitly mentioned"
+    missingRequiredSkills.length > 0
+      ? `Missing explicit evidence for: ${missingRequiredSkills.join(", ")}`
       : "",
     !educationText ? "Education details were not clearly identified" : "",
-    countImpactSignals(normalized) === 0
+    impactSignalCount === 0
       ? "Few measurable outcomes were found"
       : "",
   ].filter(Boolean);
+  const scoreReasons = [
+    `Skills: ${skills}/100 from ${matchedRequiredSkills.length}/${jobProfile.requiredSkills.length} required and ${matchedOptionalSkills.length}/${jobProfile.optionalSkills.length} optional matches.`,
+    experienceYears > 0
+      ? `Experience: ${experience}/100 from ${experienceYears} referenced years against a ${jobProfile.minimumExperienceYears}-year target.`
+      : "Experience: duration could not be determined reliably.",
+    educationText
+      ? `Education: ${education}/100 from detected education details.`
+      : "Education: no clear education details were detected.",
+    `Impact: ${impact}/100 from ${impactSignalCount} measurable outcome signals.`,
+  ];
 
   return {
     id,
     name,
     role,
-    targetRole,
+    targetRole: jobProfile.name,
+    targetJobId: jobProfile.id,
     location,
     email,
     phone,
@@ -168,7 +264,11 @@ export function analyzeResumeText(
     educationText,
     notes: "",
     analyzedAt: new Date().toISOString(),
-    summary: `${name} shows a ${score >= 85 ? "strong" : score >= 70 ? "moderate" : "limited"} match for ${targetRole}. The local analysis found ${matchedTargetSkills.length} priority skills and ${experienceYears || "some"} years of referenced experience.`,
+    analysisConfidence,
+    scoreReasons,
+    matchedRequiredSkills,
+    missingRequiredSkills,
+    summary: `${name} shows a ${score >= 80 ? "strong" : score >= 58 ? "moderate" : "limited"} match for ${jobProfile.name}. The local analysis found ${matchedRequiredSkills.length} required skills and ${experienceYears || "an undetermined number of"} years of referenced experience.`,
   };
 }
 
@@ -457,11 +557,26 @@ function findEducation(text: string) {
 }
 
 function findSkills(text: string) {
-  return skillCatalog.filter((skill) => includesTerm(text, skill));
+  return skillCatalog.filter((skill) => matchesSkill(text, skill));
 }
 
-function includesTerm(text: string, term: string) {
-  return text.toLowerCase().includes(term.toLowerCase());
+export function matchesSkill(text: string, skill: string) {
+  const aliases = skillAliases[skill] ?? [skill];
+  return aliases.some((alias) => matchesPhrase(text, alias));
+}
+
+function matchesPhrase(text: string, phrase: string) {
+  const normalizedText = normalizeForMatching(text);
+  const normalizedPhrase = normalizeForMatching(phrase);
+  const escapedPhrase = escapeRegExp(normalizedPhrase).replace(
+    /\s+/g,
+    "\\s+",
+  );
+  const pattern = new RegExp(
+    `(?:^|[^a-z0-9+#])${escapedPhrase}(?=$|[^a-z0-9+#])`,
+    "i",
+  );
+  return pattern.test(normalizedText);
 }
 
 function countImpactSignals(text: string) {
@@ -499,4 +614,39 @@ function titleCase(value: string) {
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value));
+}
+
+function ratio(value: number, target: number, maximum: number) {
+  if (target <= 0) return maximum;
+  return Math.min(maximum, value / target);
+}
+
+function normalizeForMatching(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getAnalysisConfidence(input: {
+  email?: string;
+  experienceYears: number;
+  educationText?: string;
+  detectedSkillCount: number;
+  textLength: number;
+}): AnalysisConfidence {
+  const signals =
+    Number(Boolean(input.email)) +
+    Number(input.experienceYears > 0) +
+    Number(Boolean(input.educationText)) +
+    Number(input.detectedSkillCount >= 3) +
+    Number(input.textLength >= 500);
+
+  if (signals >= 4) return "High";
+  if (signals >= 2) return "Medium";
+  return "Low";
 }

@@ -3,12 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type {
+  Candidate,
+  CandidateStage,
+  CandidateStatus,
+} from "../data/mock-data";
 import { useCandidates } from "../hooks/use-candidates";
 import { downloadCsv } from "../utils/download-csv";
 import { Avatar, ScoreRing, StatusBadge } from "./ui";
 import { Icons } from "./icons";
 
-type DetailTab = "Overview" | "Experience" | "Skills" | "Notes";
+type DetailTab = "Overview" | "Profile" | "Experience" | "Skills" | "Notes";
 
 export function CandidateDetailsPage({
   candidateId,
@@ -79,10 +84,46 @@ export function CandidateDetailsPage({
     setCandidates((current) =>
       current.map((item) =>
         item.id === selectedCandidate.id
-          ? { ...item, stage: "Interview" }
+          ? {
+              ...item,
+              stage: "Interview",
+              status: item.status === "Reject" ? "Review" : item.status,
+            }
           : item,
       ),
     );
+  }
+
+  function updateCandidate(changes: Partial<Candidate>) {
+    setCandidates((current) =>
+      current.map((item) =>
+        item.id === selectedCandidate.id ? { ...item, ...changes } : item,
+      ),
+    );
+  }
+
+  function updateStage(stage: CandidateStage) {
+    updateCandidate({
+      stage,
+      status:
+        stage === "Rejected"
+          ? "Reject"
+          : selectedCandidate.status === "Reject"
+            ? "Review"
+            : selectedCandidate.status,
+    });
+  }
+
+  function updateRecommendation(status: CandidateStatus) {
+    updateCandidate({
+      status,
+      stage:
+        status === "Reject"
+          ? "Rejected"
+          : selectedCandidate.stage === "Rejected"
+            ? "Review"
+            : selectedCandidate.stage,
+    });
   }
 
   function updateNotes(notes: string) {
@@ -162,8 +203,9 @@ export function CandidateDetailsPage({
       </section>
 
       <div className="detail-tabs" role="tablist">
-        {(["Overview", "Experience", "Skills", "Notes"] as DetailTab[]).map(
-          (item) => (
+        {(
+          ["Overview", "Profile", "Experience", "Skills", "Notes"] as DetailTab[]
+        ).map((item) => (
             <button
               key={item}
               role="tab"
@@ -175,8 +217,7 @@ export function CandidateDetailsPage({
             >
               {item}
             </button>
-          ),
-        )}
+          ))}
       </div>
 
       <div className="details-layout">
@@ -228,6 +269,127 @@ export function CandidateDetailsPage({
                     ))}
                   </ul>
                 </div>
+              </div>
+              {candidate.scoreReasons?.length ? (
+                <div className="score-reasons">
+                  <div>
+                    <h3>Why this score</h3>
+                    <span className="confidence-pill">
+                      {candidate.analysisConfidence ?? "Medium"} confidence
+                    </span>
+                  </div>
+                  <ul>
+                    {candidate.scoreReasons.map((reason) => (
+                      <li key={reason}>{reason}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </section>
+          )}
+
+          {tab === "Profile" && (
+            <section
+              className="card profile-editor-card"
+              id="candidate-panel-profile"
+              role="tabpanel"
+              aria-labelledby="candidate-tab-profile"
+            >
+              <div className="section-header">
+                <div>
+                  <h2>Correct candidate profile</h2>
+                  <p>
+                    Manual changes are saved locally and do not alter the source
+                    CV.
+                  </p>
+                </div>
+              </div>
+              <div className="form-grid">
+                <label>
+                  <span>Name</span>
+                  <input
+                    value={candidate.name}
+                    onChange={(event) =>
+                      updateCandidate({ name: event.target.value })
+                    }
+                    maxLength={120}
+                  />
+                </label>
+                <label>
+                  <span>Current role</span>
+                  <input
+                    value={candidate.role}
+                    onChange={(event) =>
+                      updateCandidate({ role: event.target.value })
+                    }
+                    maxLength={160}
+                  />
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input
+                    type="email"
+                    value={candidate.email ?? ""}
+                    onChange={(event) =>
+                      updateCandidate({
+                        email: event.target.value || undefined,
+                      })
+                    }
+                    maxLength={200}
+                  />
+                </label>
+                <label>
+                  <span>Phone</span>
+                  <input
+                    type="tel"
+                    value={candidate.phone ?? ""}
+                    onChange={(event) =>
+                      updateCandidate({
+                        phone: event.target.value || undefined,
+                      })
+                    }
+                    maxLength={60}
+                  />
+                </label>
+                <label>
+                  <span>Location</span>
+                  <input
+                    value={candidate.location}
+                    onChange={(event) =>
+                      updateCandidate({ location: event.target.value })
+                    }
+                    maxLength={160}
+                  />
+                </label>
+                <label>
+                  <span>Experience years</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="60"
+                    value={candidate.experienceYears ?? 0}
+                    onChange={(event) =>
+                      updateCandidate({
+                        experienceYears: Math.max(
+                          0,
+                          Number(event.target.value),
+                        ),
+                      })
+                    }
+                  />
+                </label>
+                <label className="full">
+                  <span>Education</span>
+                  <input
+                    value={candidate.educationText ?? ""}
+                    onChange={(event) =>
+                      updateCandidate({
+                        educationText: event.target.value || undefined,
+                      })
+                    }
+                    maxLength={300}
+                  />
+                </label>
               </div>
             </section>
           )}
@@ -372,6 +534,37 @@ export function CandidateDetailsPage({
               {recommendationCopy} This recommendation should support, not
               replace, human review.
             </p>
+            <div className="workflow-controls">
+              <label>
+                <span>Recommendation</span>
+                <select
+                  value={candidate.status}
+                  onChange={(event) =>
+                    updateRecommendation(
+                      event.target.value as CandidateStatus,
+                    )
+                  }
+                >
+                  <option value="Hire">Hire</option>
+                  <option value="Review">Review</option>
+                  <option value="Reject">Reject</option>
+                </select>
+              </label>
+              <label>
+                <span>Pipeline stage</span>
+                <select
+                  value={candidate.stage}
+                  onChange={(event) =>
+                    updateStage(event.target.value as CandidateStage)
+                  }
+                >
+                  <option value="New">New</option>
+                  <option value="Review">Review</option>
+                  <option value="Interview">Interview</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+              </label>
+            </div>
             <button
               className="button success"
               onClick={moveToInterview}

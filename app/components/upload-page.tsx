@@ -3,8 +3,12 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { useCandidates } from "../hooks/use-candidates";
+import {
+  useJobProfiles,
+  useSelectedJobProfileId,
+} from "../hooks/use-job-profiles";
 import { useNotifications } from "../hooks/use-notifications";
-import { usePersistentState } from "../hooks/use-persistent-state";
+import { usePrivacyAcknowledged } from "../hooks/use-workspace-settings";
 import {
   analyzeResumeText,
   extractResumeText,
@@ -31,17 +35,11 @@ type UploadFile = {
 const MAX_FILES = 20;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const SUPPORTED_EXTENSIONS = ["pdf", "docx", "txt"];
-const JOB_CONTEXTS = [
-  "Senior Product Designer",
-  "Staff Frontend Engineer",
-  "Senior Product Manager",
-  "Senior Data Scientist",
-  "Senior UX Researcher",
-  "Senior Backend Engineer",
-];
 
 export function UploadPage() {
   const [candidates, setCandidates] = useCandidates();
+  const [jobProfiles] = useJobProfiles();
+  const [selectedJobId, setSelectedJobId] = useSelectedJobProfileId();
   const [, setNotifications] = useNotifications();
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [dragging, setDragging] = useState(false);
@@ -51,16 +49,13 @@ export function UploadPage() {
     completed: number;
     failed: number;
   } | null>(null);
-  const [jobContext, setJobContext] = usePersistentState(
-    "talentlens-job-context",
-    "Senior Product Designer",
-    {
-      validate: (value): value is string =>
-        typeof value === "string" && JOB_CONTEXTS.includes(value),
-    },
-  );
+  const [privacyAcknowledged, setPrivacyAcknowledged] =
+    usePrivacyAcknowledged();
   const inputRef = useRef<HTMLInputElement>(null);
   const fileRefs = useRef(new Map<number, File>());
+  const selectedJob =
+    jobProfiles.find((profile) => profile.id === selectedJobId) ??
+    jobProfiles[0];
 
   function addFiles(list: FileList | null) {
     if (!list) return;
@@ -115,7 +110,7 @@ export function UploadPage() {
 
   async function analyzeFiles() {
     const pending = files.filter((file) => file.status === "queued");
-    if (!pending.length) return;
+    if (!pending.length || !selectedJob || !privacyAcknowledged) return;
 
     setAnalyzing(true);
     let completed = 0;
@@ -150,7 +145,7 @@ export function UploadPage() {
           text,
           item.name,
           item.size,
-          jobContext,
+          selectedJob,
           nextCandidateId,
         );
         nextCandidateId += 1;
@@ -384,7 +379,12 @@ export function UploadPage() {
             <button
               className="button primary"
               onClick={analyzeFiles}
-              disabled={analyzing || queuedCount === 0}
+              disabled={
+                analyzing ||
+                queuedCount === 0 ||
+                !selectedJob ||
+                !privacyAcknowledged
+              }
             >
               {analyzing
                 ? "Analyzing locally..."
@@ -395,6 +395,29 @@ export function UploadPage() {
         </section>
 
         <aside className="upload-sidebar">
+          <section className="card privacy-check-card">
+            <div className="aside-icon violet">
+              <Icons.check size={20} />
+            </div>
+            <h2>Local privacy check</h2>
+            <p>
+              Raw files stay in browser memory. Extracted candidate metadata,
+              contact details, scores, and notes are saved in localStorage.
+            </p>
+            <label className="privacy-checkbox">
+              <input
+                type="checkbox"
+                checked={privacyAcknowledged}
+                onChange={(event) =>
+                  setPrivacyAcknowledged(event.target.checked)
+                }
+              />
+              <span>I understand this device stores the analyzed metadata.</span>
+            </label>
+            <Link className="text-link centered" href="/settings">
+              Review privacy and backups
+            </Link>
+          </section>
           <section className="card">
             <div className="aside-icon violet">
               <Icons.sparkles size={20} />
@@ -432,20 +455,25 @@ export function UploadPage() {
             <p>CVs will be evaluated against:</p>
             <label className="job-selector">
               <span>
-                <strong>{jobContext}</strong>
+                <strong>{selectedJob?.name ?? "No job profile"}</strong>
                 <small>Local matching profile</small>
               </span>
               <select
-                value={jobContext}
-                onChange={(event) => setJobContext(event.target.value)}
+                value={selectedJob?.id ?? ""}
+                onChange={(event) => setSelectedJobId(event.target.value)}
                 aria-label="Job matching profile"
               >
-                {JOB_CONTEXTS.map((job) => (
-                  <option key={job}>{job}</option>
+                {jobProfiles.map((job) => (
+                  <option value={job.id} key={job.id}>
+                    {job.name}
+                  </option>
                 ))}
               </select>
               <Icons.chevronDown size={16} />
             </label>
+            <Link className="text-link centered" href="/jobs">
+              Edit job profiles
+            </Link>
           </section>
         </aside>
       </div>

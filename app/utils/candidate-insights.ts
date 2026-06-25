@@ -1,4 +1,4 @@
-import type { Candidate, CandidateStage } from "../data/mock-data";
+import type { Candidate, CandidateStage } from "../data/mock-data.ts";
 
 export type InsightRange = "Last 30 days" | "Last 90 days" | "All time";
 

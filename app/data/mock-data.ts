@@ -1,11 +1,13 @@
 export type CandidateStatus = "Hire" | "Review" | "Reject";
 export type CandidateStage = "New" | "Review" | "Interview" | "Rejected";
+export type AnalysisConfidence = "High" | "Medium" | "Low";
 
 export type Candidate = {
   id: number;
   name: string;
   role: string;
   targetRole?: string;
+  targetJobId?: string;
   location: string;
   email?: string;
   phone?: string;
@@ -28,6 +30,10 @@ export type Candidate = {
   notes?: string;
   analyzedAt?: string;
   sourceSize?: string;
+  analysisConfidence?: AnalysisConfidence;
+  scoreReasons?: string[];
+  matchedRequiredSkills?: string[];
+  missingRequiredSkills?: string[];
 };
 
 export const candidates: Candidate[] = [

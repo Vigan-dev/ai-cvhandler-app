@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --experimental-strip-types --test tests/local-resume-analysis.test.ts tests/candidate-insights.test.ts tests/workspace-backup.test.ts"
   },
   "dependencies": {
     "next": "16.2.9",

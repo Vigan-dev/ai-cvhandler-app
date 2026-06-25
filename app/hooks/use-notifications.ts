@@ -30,9 +30,11 @@ const initialNotifications: WorkspaceNotification[] = [
   },
 ];
 
+export const NOTIFICATIONS_STORAGE_KEY = "talentlens-notifications";
+
 export function useNotifications() {
   return usePersistentState<WorkspaceNotification[]>(
-    "talentlens-notifications",
+    NOTIFICATIONS_STORAGE_KEY,
     initialNotifications,
     { validate: isNotificationArray },
   );

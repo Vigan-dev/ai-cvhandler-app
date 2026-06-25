@@ -8,10 +8,12 @@ import {
   type CandidateStatus,
 } from "../data/mock-data";
 import { usePersistentState } from "./use-persistent-state";
+import { useRetentionDays } from "./use-workspace-settings";
 
 export const CANDIDATES_STORAGE_KEY = "talentlens-candidates";
 
 export function useCandidates() {
+  const [retentionDays, , retentionHydrated] = useRetentionDays();
   const state = usePersistentState<Candidate[]>(
     CANDIDATES_STORAGE_KEY,
     initialCandidates,
@@ -20,15 +22,34 @@ export function useCandidates() {
   const [candidates, setCandidates, hydrated] = state;
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !retentionHydrated) return;
 
-    const migrated = candidates.map(migrateCandidate);
+    const migrated = candidates
+      .map(migrateCandidate)
+      .filter((candidate) => !isExpired(candidate, retentionDays));
     if (JSON.stringify(migrated) !== JSON.stringify(candidates)) {
       setCandidates(migrated);
     }
-  }, [candidates, hydrated, setCandidates]);
+  }, [
+    candidates,
+    hydrated,
+    retentionDays,
+    retentionHydrated,
+    setCandidates,
+  ]);
 
   return state;
+}
+
+function isExpired(candidate: Candidate, retentionDays: number) {
+  if (retentionDays === 0 || !candidate.sourceFile || !candidate.analyzedAt) {
+    return false;
+  }
+
+  const analyzedAt = Date.parse(candidate.analyzedAt);
+  if (Number.isNaN(analyzedAt)) return false;
+
+  return Date.now() - analyzedAt > retentionDays * 24 * 60 * 60 * 1000;
 }
 
 function migrateCandidate(candidate: Candidate): Candidate {
