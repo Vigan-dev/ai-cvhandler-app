@@ -41,7 +41,6 @@ test("workspace restore migrates older backup shapes before validation", () => {
   const restored = parseWorkspaceBackup(
     JSON.stringify({
       product: "TalentLens",
-      schemaVersion: 1,
       exportedAt: "2026-06-25T12:00:00.000Z",
       data: {
         candidates: [
@@ -77,8 +76,6 @@ test("workspace restore migrates older backup shapes before validation", () => {
             updatedAt: "2026-01-01T00:00:00.000Z",
           },
         ],
-        selectedJobId: "legacy-role",
-        notifications: [],
         preferences: {
           "talentlens-theme": "system",
           "talentlens-candidate-view": "list",
@@ -89,17 +86,14 @@ test("workspace restore migrates older backup shapes before validation", () => {
 
   assert.equal(restored.schemaVersion, WORKSPACE_BACKUP_VERSION);
   assert.equal(restored.data.candidates[0].stage, "New");
+  assert.equal(restored.data.selectedJobId, "legacy-role");
+  assert.deepEqual(restored.data.notifications, []);
   assert.equal(restored.data.jobProfiles[0].requiredSkillStrictness, "balanced");
   assert.equal(restored.data.preferences["talentlens-theme"], "light");
   assert.equal(restored.data.preferences["talentlens-candidate-view"], "table");
 });
 
-test("workspace restore rejects malformed or inconsistent data", () => {
-  assert.throws(
-    () => parseWorkspaceBackup("{not-json"),
-    /not valid JSON/,
-  );
-
+test("workspace restore repairs a missing selected job profile", () => {
   const backup = createWorkspaceBackup({
     candidates: [],
     jobProfiles: defaultJobProfiles,
@@ -107,9 +101,14 @@ test("workspace restore rejects malformed or inconsistent data", () => {
     notifications: [],
     preferences: {},
   });
+  const restored = parseWorkspaceBackup(serializeWorkspaceBackup(backup));
 
+  assert.equal(restored.data.selectedJobId, defaultJobProfiles[0].id);
+});
+
+test("workspace restore rejects malformed data", () => {
   assert.throws(
-    () => parseWorkspaceBackup(serializeWorkspaceBackup(backup)),
-    /missing selected job profile/,
+    () => parseWorkspaceBackup("{not-json"),
+    /not valid JSON/,
   );
 });

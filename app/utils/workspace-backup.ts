@@ -91,33 +91,22 @@ export function parseWorkspaceBackup(value: string): WorkspaceBackup {
 }
 
 function migrateBackupData(data: Record<string, unknown>): WorkspaceBackup["data"] {
-  if (
-    !Array.isArray(data.candidates) ||
-    !Array.isArray(data.jobProfiles) ||
-    data.jobProfiles.length === 0 ||
-    typeof data.selectedJobId !== "string" ||
-    !Array.isArray(data.notifications)
-  ) {
-    throw new Error(
-      "This file is not a compatible TalentLens workspace backup.",
-    );
-  }
-
   const candidates = migrateWorkspaceValue(
     WORKSPACE_STORAGE_KEYS.candidates,
-    data.candidates,
+    Array.isArray(data.candidates) ? data.candidates : [],
   ).value;
   const jobProfiles = migrateWorkspaceValue(
     WORKSPACE_STORAGE_KEYS.jobProfiles,
     data.jobProfiles,
   ).value;
-  const selectedJobId = migrateWorkspaceValue(
-    WORKSPACE_STORAGE_KEYS.selectedJobProfile,
+  const migratedJobProfiles = jobProfiles as JobProfile[];
+  const selectedJobId = getSelectedJobId(
     data.selectedJobId,
-  ).value;
+    migratedJobProfiles,
+  );
   const notifications = migrateWorkspaceValue(
     WORKSPACE_STORAGE_KEYS.notifications,
-    data.notifications,
+    Array.isArray(data.notifications) ? data.notifications : [],
   ).value;
   const preferences = migrateWorkspacePreferences(
     isRecord(data.preferences) ? data.preferences : {},
@@ -125,15 +114,26 @@ function migrateBackupData(data: Record<string, unknown>): WorkspaceBackup["data
 
   return {
     candidates: candidates as Candidate[],
-    jobProfiles: jobProfiles as JobProfile[],
-    selectedJobId: selectedJobId as string,
+    jobProfiles: migratedJobProfiles,
+    selectedJobId,
     notifications: notifications as WorkspaceNotification[],
     preferences,
   };
 }
 
 function isSupportedBackupVersion(value: unknown) {
-  return value === 1 || value === WORKSPACE_BACKUP_VERSION;
+  return value === undefined || value === 1 || value === WORKSPACE_BACKUP_VERSION;
+}
+
+function getSelectedJobId(value: unknown, jobProfiles: JobProfile[]) {
+  if (
+    typeof value === "string" &&
+    jobProfiles.some((profile) => profile.id === value)
+  ) {
+    return value;
+  }
+
+  return jobProfiles[0]?.id ?? "";
 }
 
 function isCandidateArray(value: unknown): value is Candidate[] {

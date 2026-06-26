@@ -114,7 +114,7 @@ function JobContextCard({
       </div>
       <h2>Job context</h2>
       <p>CVs will be evaluated against:</p>
-      <label className="job-selector">
+      <label className="upload-job-selector">
         <span>
           <strong>{selectedJob?.name ?? "No job profile"}</strong>
           <small>Local matching profile</small>
