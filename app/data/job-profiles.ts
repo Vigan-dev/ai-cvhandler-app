@@ -5,12 +5,18 @@ export type JobProfileWeights = {
   impact: number;
 };
 
+export type RequiredSkillStrictness = "flexible" | "balanced" | "strict";
+
+export type SkillAliases = Record<string, string[]>;
+
 export type JobProfile = {
   id: string;
   name: string;
   description: string;
   requiredSkills: string[];
   optionalSkills: string[];
+  requiredSkillStrictness?: RequiredSkillStrictness;
+  skillAliases?: SkillAliases;
   minimumExperienceYears: number;
   educationKeywords: string[];
   weights: JobProfileWeights;
@@ -77,6 +83,8 @@ export const defaultJobProfiles: JobProfile[] = [
       "Product Strategy",
     ],
     optionalSkills: ["Accessibility", "Prototyping", "Leadership", "Analytics"],
+    requiredSkillStrictness: "balanced",
+    skillAliases: {},
     minimumExperienceYears: 6,
     educationKeywords: [
       "design",
@@ -98,6 +106,11 @@ export const defaultJobProfiles: JobProfile[] = [
       "Testing",
       "Architecture",
     ],
+    requiredSkillStrictness: "strict",
+    skillAliases: {
+      TypeScript: ["typed javascript"],
+      Accessibility: ["wcag", "a11y"],
+    },
     minimumExperienceYears: 8,
     educationKeywords: [
       "computer science",
@@ -123,6 +136,11 @@ export const defaultJobProfiles: JobProfile[] = [
       "A/B Testing",
       "B2B SaaS",
     ],
+    requiredSkillStrictness: "balanced",
+    skillAliases: {
+      Analytics: ["metrics", "kpis", "product metrics"],
+      Agile: ["scrum", "kanban"],
+    },
     minimumExperienceYears: 6,
     educationKeywords: ["business", "mba", "product management", "economics"],
     weights: { skills: 45, experience: 35, education: 5, impact: 15 },
@@ -134,6 +152,11 @@ export const defaultJobProfiles: JobProfile[] = [
       "Applied data science role requiring Python, SQL, machine learning, and measurable production impact.",
     requiredSkills: ["Python", "SQL", "Machine Learning", "Data Analysis"],
     optionalSkills: ["AWS", "Docker", "Statistics", "Leadership", "Analytics"],
+    requiredSkillStrictness: "strict",
+    skillAliases: {
+      "Machine Learning": ["ml", "predictive modeling"],
+      "Data Analysis": ["data analytics", "analysis of data"],
+    },
     minimumExperienceYears: 5,
     educationKeywords: [
       "data science",
@@ -160,6 +183,11 @@ export const defaultJobProfiles: JobProfile[] = [
       "A/B Testing",
       "Leadership",
     ],
+    requiredSkillStrictness: "balanced",
+    skillAliases: {
+      Usability: ["usability testing", "user testing"],
+      "Workshop Facilitation": ["facilitated workshops"],
+    },
     minimumExperienceYears: 5,
     educationKeywords: [
       "psychology",
@@ -182,6 +210,11 @@ export const defaultJobProfiles: JobProfile[] = [
       "Testing",
       "Architecture",
     ],
+    requiredSkillStrictness: "strict",
+    skillAliases: {
+      "Node.js": ["nodejs", "node js"],
+      Postgres: ["postgresql"],
+    },
     minimumExperienceYears: 6,
     educationKeywords: [
       "computer science",

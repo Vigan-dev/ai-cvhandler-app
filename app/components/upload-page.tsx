@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRef, useState } from "react";
 import { useCandidates } from "../hooks/use-candidates";
 import {
@@ -9,28 +8,11 @@ import {
 } from "../hooks/use-job-profiles";
 import { useNotifications } from "../hooks/use-notifications";
 import { usePrivacyAcknowledged } from "../hooks/use-workspace-settings";
-import {
-  analyzeResumeText,
-  extractResumeText,
-} from "../utils/local-resume-analysis";
-import { Icons } from "./icons";
+import { analyzeResumeFileInWorker } from "../utils/resume-worker-client";
+import { UploadMainCard } from "./upload/UploadMainCard";
+import { UploadSidebar } from "./upload/UploadSidebar";
+import type { AnalysisResult, UploadFile } from "./upload/types";
 import { PageHeader } from "./ui";
-
-type UploadStatus =
-  | "queued"
-  | "extracting"
-  | "analyzing"
-  | "complete"
-  | "error";
-
-type UploadFile = {
-  id: number;
-  name: string;
-  size: string;
-  progress: number;
-  status: UploadStatus;
-  error?: string;
-};
 
 const MAX_FILES = 20;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -45,10 +27,9 @@ export function UploadPage() {
   const [dragging, setDragging] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [queueMessage, setQueueMessage] = useState("");
-  const [analysisResult, setAnalysisResult] = useState<{
-    completed: number;
-    failed: number;
-  } | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(
+    null,
+  );
   const [privacyAcknowledged, setPrivacyAcknowledged] =
     usePrivacyAcknowledged();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -64,6 +45,20 @@ export function UploadPage() {
     setAnalysisResult(null);
 
     const existingNames = new Set(files.map((file) => file.name.toLowerCase()));
+    const existingFingerprints = new Set(files.map((file) => file.fingerprint));
+    const savedFingerprints = new Set(
+      candidates.flatMap((candidate) => [
+        ...(candidate.sourceFingerprint ? [candidate.sourceFingerprint] : []),
+        ...(candidate.sourceFile && candidate.sourceSize
+          ? [
+              createDisplayFingerprint(
+                candidate.sourceFile,
+                candidate.sourceSize,
+              ),
+            ]
+          : []),
+      ]),
+    );
     const remainingSlots = Math.max(0, MAX_FILES - files.length);
     const selected = Array.from(list);
     if (selected.length > remainingSlots) {
@@ -77,6 +72,7 @@ export function UploadPage() {
       .map((file, index): UploadFile => {
         const id = Date.now() + index;
         const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+        const fingerprint = createFileFingerprint(file);
         let error: string | undefined;
 
         if (!SUPPORTED_EXTENSIONS.includes(extension)) {
@@ -85,12 +81,22 @@ export function UploadPage() {
           error = "File exceeds the 10 MB limit";
         } else if (file.size === 0) {
           error = "File is empty";
+        } else if (existingFingerprints.has(fingerprint)) {
+          error = "This exact file is already queued";
+        } else if (
+          savedFingerprints.has(fingerprint) ||
+          savedFingerprints.has(
+            createDisplayFingerprint(file.name, formatFileSize(file.size)),
+          )
+        ) {
+          error = "This exact file was already analyzed";
         } else if (existingNames.has(file.name.toLowerCase())) {
           error = "A file with this name is already queued";
         }
 
         if (!error) {
           existingNames.add(file.name.toLowerCase());
+          existingFingerprints.add(fingerprint);
           fileRefs.current.set(id, file);
         }
 
@@ -98,6 +104,7 @@ export function UploadPage() {
           id,
           name: file.name,
           size: formatFileSize(file.size),
+          fingerprint,
           progress: 0,
           status: error ? "error" : "queued",
           error,
@@ -115,7 +122,8 @@ export function UploadPage() {
     setAnalyzing(true);
     let completed = 0;
     let failed = 0;
-    let nextCandidateId = Math.max(0, ...candidates.map((candidate) => candidate.id)) + 1;
+    let nextCandidateId =
+      Math.max(0, ...candidates.map((candidate) => candidate.id)) + 1;
 
     for (const item of pending) {
       const source = fileRefs.current.get(item.id);
@@ -135,19 +143,18 @@ export function UploadPage() {
           progress: 25,
           error: undefined,
         });
-        const text = await extractResumeText(source);
-
         updateFile(item.id, {
           status: "analyzing",
           progress: 70,
         });
-        const candidate = analyzeResumeText(
-          text,
-          item.name,
-          item.size,
-          selectedJob,
-          nextCandidateId,
-        );
+        const candidate = await analyzeResumeFileInWorker({
+          file: source,
+          sourceFile: item.name,
+          sourceSize: item.size,
+          sourceFingerprint: item.fingerprint,
+          jobProfile: selectedJob,
+          candidateId: nextCandidateId,
+        });
         nextCandidateId += 1;
 
         setCandidates((current) => [
@@ -213,6 +220,8 @@ export function UploadPage() {
   const completeCount = files.filter(
     (file) => file.status === "complete",
   ).length;
+  const canAnalyze =
+    !analyzing && queuedCount > 0 && Boolean(selectedJob) && privacyAcknowledged;
 
   return (
     <>
@@ -223,272 +232,44 @@ export function UploadPage() {
       />
 
       <div className="upload-layout">
-        <section className="card upload-main-card">
-          <div
-            className={`dropzone ${dragging ? "is-dragging" : ""}`}
-            onDragOver={(event) => {
-              event.preventDefault();
-              setDragging(true);
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={(event) => {
-              event.preventDefault();
-              setDragging(false);
-              addFiles(event.dataTransfer.files);
-            }}
-          >
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".pdf,.docx,.txt"
-              multiple
-              onChange={(event) => addFiles(event.target.files)}
-              className="sr-only"
-            />
-            <div className="dropzone-icon">
-              <Icons.upload size={27} />
-            </div>
-            <h2>
-              {dragging ? "Drop files to add them" : "Drag and drop CVs here"}
-            </h2>
-            <p>
-              or{" "}
-              <button onClick={() => inputRef.current?.click()}>
-                browse your files
-              </button>
-            </p>
-            <small>
-              PDF, DOCX, or TXT · Up to 10 MB each · Maximum 20 files
-            </small>
-          </div>
+        <UploadMainCard
+          files={files}
+          dragging={dragging}
+          setDragging={setDragging}
+          inputRef={inputRef}
+          queueMessage={queueMessage}
+          analysisResult={analysisResult}
+          analyzing={analyzing}
+          queuedCount={queuedCount}
+          completeCount={completeCount}
+          canAnalyze={canAnalyze}
+          onAddFiles={addFiles}
+          onClearFiles={clearFiles}
+          onRemoveFile={removeFile}
+          onAnalyzeFiles={analyzeFiles}
+        />
 
-          <div className="upload-list-header">
-            <div>
-              <h2>Analysis queue</h2>
-              <p>
-                {files.length} files · {completeCount} analyzed
-              </p>
-            </div>
-            {files.length > 0 && (
-              <button
-                className="text-button"
-                onClick={clearFiles}
-                disabled={analyzing}
-              >
-                Clear all
-              </button>
-            )}
-          </div>
-
-          {queueMessage && (
-            <p className="queue-message" role="status">
-              {queueMessage}
-            </p>
-          )}
-
-          <div className="upload-list" aria-live="polite">
-            {files.length === 0 ? (
-              <div className="empty-state compact">
-                <span>
-                  <Icons.file size={24} />
-                </span>
-                <h3>No files in the queue</h3>
-                <p>Selected CVs remain in memory until this page is closed.</p>
-              </div>
-            ) : (
-              files.map((file) => (
-                <div
-                  className={`upload-row upload-${file.status}`}
-                  key={file.id}
-                >
-                  <div className="upload-file-icon">
-                    <Icons.file size={20} />
-                  </div>
-                  <div className="upload-file-copy">
-                    <div className="upload-file-top">
-                      <strong>{file.name}</strong>
-                      <span>{file.size}</span>
-                    </div>
-                    {file.status === "error" ? (
-                      <p className="error-text">
-                        <Icons.close size={13} /> {file.error}
-                      </p>
-                    ) : (
-                      <div className="progress-row">
-                        <div className="progress-track">
-                          <span style={{ width: `${file.progress}%` }} />
-                        </div>
-                        <small>{getStatusLabel(file)}</small>
-                      </div>
-                    )}
-                  </div>
-                  <div className={`upload-status-icon ${file.status}`}>
-                    {file.status === "complete" ? (
-                      <Icons.check size={16} />
-                    ) : file.status === "error" ? (
-                      <Icons.close size={16} />
-                    ) : file.status === "queued" ? (
-                      <span className="queued-dot" />
-                    ) : (
-                      <span className="spinner" />
-                    )}
-                  </div>
-                  <button
-                    className="ghost-icon"
-                    aria-label={`Remove ${file.name}`}
-                    disabled={analyzing}
-                    onClick={() => removeFile(file.id)}
-                  >
-                    <Icons.close size={17} />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-
-          {analysisResult && (
-            <div
-              className={`analysis-result ${analysisResult.failed ? "has-errors" : ""}`}
-              role="status"
-            >
-              <span>
-                <strong>
-                  {analysisResult.completed} CV
-                  {analysisResult.completed === 1 ? "" : "s"} analyzed
-                </strong>
-                {analysisResult.failed > 0 && (
-                  <small>
-                    {analysisResult.failed} file
-                    {analysisResult.failed === 1 ? "" : "s"} need attention
-                  </small>
-                )}
-              </span>
-              {analysisResult.completed > 0 && (
-                <Link href="/candidates" className="button secondary">
-                  View candidates <Icons.arrowRight size={16} />
-                </Link>
-              )}
-            </div>
-          )}
-
-          <div className="upload-footer">
-            <span>
-              <Icons.sparkles size={16} /> Raw files are processed in memory;
-              only candidate metadata is saved locally.
-            </span>
-            <button
-              className="button primary"
-              onClick={analyzeFiles}
-              disabled={
-                analyzing ||
-                queuedCount === 0 ||
-                !selectedJob ||
-                !privacyAcknowledged
-              }
-            >
-              {analyzing
-                ? "Analyzing locally..."
-                : `Analyze ${queuedCount} CV${queuedCount === 1 ? "" : "s"}`}
-              <Icons.arrowRight size={17} />
-            </button>
-          </div>
-        </section>
-
-        <aside className="upload-sidebar">
-          <section className="card privacy-check-card">
-            <div className="aside-icon violet">
-              <Icons.check size={20} />
-            </div>
-            <h2>Local privacy check</h2>
-            <p>
-              Raw files stay in browser memory. Extracted candidate metadata,
-              contact details, scores, and notes are saved in localStorage.
-            </p>
-            <label className="privacy-checkbox">
-              <input
-                type="checkbox"
-                checked={privacyAcknowledged}
-                onChange={(event) =>
-                  setPrivacyAcknowledged(event.target.checked)
-                }
-              />
-              <span>I understand this device stores the analyzed metadata.</span>
-            </label>
-            <Link className="text-link centered" href="/settings">
-              Review privacy and backups
-            </Link>
-          </section>
-          <section className="card">
-            <div className="aside-icon violet">
-              <Icons.sparkles size={20} />
-            </div>
-            <h2>What happens next?</h2>
-            <ol className="steps-list">
-              <li>
-                <span>1</span>
-                <div>
-                  <strong>Local text extraction</strong>
-                  <p>The browser reads PDF, DOCX, or TXT content in memory.</p>
-                </div>
-              </li>
-              <li>
-                <span>2</span>
-                <div>
-                  <strong>Local matching</strong>
-                  <p>Skills, experience, and education are scored locally.</p>
-                </div>
-              </li>
-              <li>
-                <span>3</span>
-                <div>
-                  <strong>Saved results</strong>
-                  <p>Only derived candidate metadata is stored locally.</p>
-                </div>
-              </li>
-            </ol>
-          </section>
-          <section className="card job-context-card">
-            <div className="aside-icon blue">
-              <Icons.briefcase size={20} />
-            </div>
-            <h2>Job context</h2>
-            <p>CVs will be evaluated against:</p>
-            <label className="job-selector">
-              <span>
-                <strong>{selectedJob?.name ?? "No job profile"}</strong>
-                <small>Local matching profile</small>
-              </span>
-              <select
-                value={selectedJob?.id ?? ""}
-                onChange={(event) => setSelectedJobId(event.target.value)}
-                aria-label="Job matching profile"
-              >
-                {jobProfiles.map((job) => (
-                  <option value={job.id} key={job.id}>
-                    {job.name}
-                  </option>
-                ))}
-              </select>
-              <Icons.chevronDown size={16} />
-            </label>
-            <Link className="text-link centered" href="/jobs">
-              Edit job profiles
-            </Link>
-          </section>
-        </aside>
+        <UploadSidebar
+          jobProfiles={jobProfiles}
+          selectedJob={selectedJob}
+          setSelectedJobId={setSelectedJobId}
+          privacyAcknowledged={privacyAcknowledged}
+          setPrivacyAcknowledged={setPrivacyAcknowledged}
+        />
       </div>
     </>
   );
 }
 
-function getStatusLabel(file: UploadFile) {
-  if (file.status === "queued") return "Ready";
-  if (file.status === "extracting") return "Reading CV";
-  if (file.status === "analyzing") return "Scoring";
-  return "Analyzed";
-}
-
 function formatFileSize(size: number) {
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function createFileFingerprint(file: File) {
+  return `${file.name.toLowerCase()}::${file.size}::${file.lastModified}`;
+}
+
+function createDisplayFingerprint(fileName: string, fileSize: string) {
+  return `${fileName.toLowerCase()}::${fileSize}`;
 }

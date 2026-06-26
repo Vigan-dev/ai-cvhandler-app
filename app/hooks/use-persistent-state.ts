@@ -8,6 +8,11 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  migrateWorkspaceValue,
+  WORKSPACE_SCHEMA_STORAGE_KEY,
+  WORKSPACE_SCHEMA_VERSION,
+} from "../utils/workspace-migrations";
 
 type PersistentStateOptions<T> = {
   validate?: (value: unknown) => value is T;
@@ -41,9 +46,14 @@ export function usePersistentState<T>(
     let cancelled = false;
 
     const synchronize: StorageListener = (nextValue) => {
-      if (cancelled || !isValid(nextValue, validateRef.current)) return;
-      valueRef.current = nextValue;
-      setValue(nextValue);
+      if (cancelled) return;
+
+      const migrated = migrateWorkspaceValue(key, nextValue);
+      if (!isValid(migrated.value, validateRef.current)) return;
+      valueRef.current = migrated.value;
+      setValue(migrated.value);
+      if (migrated.migrated) writeStoredValue(key, migrated.value);
+      recordWorkspaceSchemaVersion(key);
     };
 
     const keyListeners = listeners.get(key) ?? new Set<StorageListener>();
@@ -114,7 +124,14 @@ function readStoredValue<T>(
     if (raw === null) return fallback;
 
     const parsed = parseStoredValue(raw);
-    if (parsed.ok && isValid(parsed.value, validate)) return parsed.value;
+    if (parsed.ok) {
+      const migrated = migrateWorkspaceValue(key, parsed.value);
+      if (isValid(migrated.value, validate)) {
+        if (migrated.migrated) writeStoredValue(key, migrated.value);
+        recordWorkspaceSchemaVersion(key);
+        return migrated.value;
+      }
+    }
 
     localStorage.removeItem(key);
   } catch {
@@ -127,6 +144,20 @@ function readStoredValue<T>(
 function writeStoredValue<T>(key: string, value: T) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    recordWorkspaceSchemaVersion(key);
+  } catch {
+    notifyStorageFailure();
+  }
+}
+
+function recordWorkspaceSchemaVersion(key: string) {
+  if (key === WORKSPACE_SCHEMA_STORAGE_KEY) return;
+
+  try {
+    localStorage.setItem(
+      WORKSPACE_SCHEMA_STORAGE_KEY,
+      JSON.stringify(WORKSPACE_SCHEMA_VERSION),
+    );
   } catch {
     notifyStorageFailure();
   }

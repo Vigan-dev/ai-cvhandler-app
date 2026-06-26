@@ -1,31 +1,27 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  defaultJobProfiles,
-  type JobProfile,
-} from "../data/job-profiles";
+import { defaultJobProfiles, type JobProfile } from "../data/job-profiles";
 import {
   createJobProfileId,
-  normalizeWeights,
   useJobProfiles,
   useSelectedJobProfileId,
 } from "../hooks/use-job-profiles";
+import { ConfirmationDialog } from "./confirmation-dialog";
 import { Icons } from "./icons";
+import { JobProfileEditor } from "./job-profiles/JobProfileEditor";
+import { JobProfileList } from "./job-profiles/JobProfileList";
+import {
+  buildProfileFromDraft,
+  type JobDraft,
+  parseJobProfileList,
+  toJobDraft,
+} from "./job-profiles/job-profile-draft";
 import { PageHeader } from "./ui";
 
-type JobDraft = {
-  name: string;
-  description: string;
-  requiredSkills: string;
-  optionalSkills: string;
-  minimumExperienceYears: number;
-  educationKeywords: string;
-  skillsWeight: number;
-  experienceWeight: number;
-  educationWeight: number;
-  impactWeight: number;
-};
+type JobProfileConfirmation =
+  | { type: "delete-profile"; profileId: string; profileName: string }
+  | { type: "restore-defaults" };
 
 export function JobProfilesPage() {
   const [profiles, setProfiles] = useJobProfiles();
@@ -33,16 +29,18 @@ export function JobProfilesPage() {
   const selectedProfile =
     profiles.find((profile) => profile.id === selectedJobId) ?? profiles[0];
   const [draft, setDraft] = useState<JobDraft>(() =>
-    toDraft(selectedProfile ?? defaultJobProfiles[0]),
+    toJobDraft(selectedProfile ?? defaultJobProfiles[0]),
   );
   const [message, setMessage] = useState("");
+  const [confirmation, setConfirmation] =
+    useState<JobProfileConfirmation | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     queueMicrotask(() => {
       if (!cancelled && selectedProfile) {
-        setDraft(toDraft(selectedProfile));
+        setDraft(toJobDraft(selectedProfile));
       }
     });
 
@@ -59,35 +57,29 @@ export function JobProfilesPage() {
       draft.impactWeight,
     [draft],
   );
+  const draftProfile = useMemo(
+    () =>
+      selectedProfile ? buildProfileFromDraft(selectedProfile, draft) : null,
+    [draft, selectedProfile],
+  );
+
+  function updateDraft(changes: Partial<JobDraft>) {
+    setDraft((current) => ({ ...current, ...changes }));
+  }
 
   function saveProfile() {
     if (!selectedProfile) return;
     const name = draft.name.trim();
-    const requiredSkills = parseList(draft.requiredSkills);
+    const requiredSkills = parseJobProfileList(draft.requiredSkills);
 
     if (!name || requiredSkills.length === 0) {
       setMessage("A profile name and at least one required skill are required.");
       return;
     }
 
-    const weights = normalizeWeights({
-      skills: draft.skillsWeight,
-      experience: draft.experienceWeight,
-      education: draft.educationWeight,
-      impact: draft.impactWeight,
-    });
     const updated: JobProfile = {
-      ...selectedProfile,
-      name,
-      description: draft.description.trim(),
+      ...buildProfileFromDraft(selectedProfile, draft),
       requiredSkills,
-      optionalSkills: parseList(draft.optionalSkills),
-      minimumExperienceYears: Math.max(
-        0,
-        Math.round(draft.minimumExperienceYears),
-      ),
-      educationKeywords: parseList(draft.educationKeywords),
-      weights,
       updatedAt: new Date().toISOString(),
     };
 
@@ -114,6 +106,8 @@ export function JobProfilesPage() {
       description: "Describe the role and the evidence a strong CV should show.",
       requiredSkills: ["Required skill"],
       optionalSkills: [],
+      requiredSkillStrictness: "balanced",
+      skillAliases: {},
       minimumExperienceYears: 3,
       educationKeywords: [],
       weights: { skills: 50, experience: 30, education: 10, impact: 10 },
@@ -148,20 +142,42 @@ export function JobProfilesPage() {
       setMessage("At least one job profile must remain.");
       return;
     }
-    if (!window.confirm(`Delete ${selectedProfile.name}?`)) return;
-
-    const remaining = profiles.filter(
-      (profile) => profile.id !== selectedProfile.id,
-    );
-    setProfiles(remaining);
-    setSelectedJobId(remaining[0].id);
-    setMessage("Profile removed.");
+    setConfirmation({
+      type: "delete-profile",
+      profileId: selectedProfile.id,
+      profileName: selectedProfile.name,
+    });
   }
 
   function restoreDefaults() {
-    if (!window.confirm("Replace all job profiles with the default profiles?")) {
+    setConfirmation({ type: "restore-defaults" });
+  }
+
+  function confirmJobProfileAction() {
+    if (!confirmation) return;
+
+    if (confirmation.type === "delete-profile") {
+      const remaining = profiles.filter(
+        (profile) => profile.id !== confirmation.profileId,
+      );
+
+      setConfirmation(null);
+      if (remaining.length === profiles.length) {
+        setMessage("Profile could not be found.");
+        return;
+      }
+      if (remaining.length === 0) {
+        setMessage("At least one job profile must remain.");
+        return;
+      }
+
+      setProfiles(remaining);
+      setSelectedJobId(remaining[0].id);
+      setMessage("Profile removed.");
       return;
     }
+
+    setConfirmation(null);
     setProfiles(defaultJobProfiles);
     setSelectedJobId(defaultJobProfiles[0].id);
     setMessage("Default job profiles restored.");
@@ -186,199 +202,47 @@ export function JobProfilesPage() {
       />
 
       <div className="job-profile-layout">
-        <aside className="card job-profile-list">
-          <div className="section-header">
-            <div>
-              <h2>Profiles</h2>
-              <p>{profiles.length} local matching configurations</p>
-            </div>
-          </div>
-          <div>
-            {profiles.map((profile) => (
-              <button
-                key={profile.id}
-                className={selectedProfile?.id === profile.id ? "active" : ""}
-                onClick={() => setSelectedJobId(profile.id)}
-              >
-                <strong>{profile.name}</strong>
-                <small>
-                  {profile.requiredSkills.length} required skills ·{" "}
-                  {profile.minimumExperienceYears}+ years
-                </small>
-              </button>
-            ))}
-          </div>
-          <button className="text-button" onClick={restoreDefaults}>
-            Restore defaults
-          </button>
-        </aside>
+        <JobProfileList
+          profiles={profiles}
+          selectedProfileId={selectedProfile?.id}
+          onProfileSelect={setSelectedJobId}
+          onRestoreDefaults={restoreDefaults}
+        />
 
         {selectedProfile && (
-          <section className="card job-profile-editor">
-            <div className="form-grid">
-              <label className="full">
-                <span>Profile name</span>
-                <input
-                  value={draft.name}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      name: event.target.value,
-                    }))
-                  }
-                  maxLength={100}
-                />
-              </label>
-              <label className="full">
-                <span>Description</span>
-                <textarea
-                  value={draft.description}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      description: event.target.value,
-                    }))
-                  }
-                  maxLength={600}
-                />
-              </label>
-              <label className="full">
-                <span>Required skills</span>
-                <textarea
-                  value={draft.requiredSkills}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      requiredSkills: event.target.value,
-                    }))
-                  }
-                  placeholder="React, TypeScript, Accessibility"
-                />
-                <small>Separate skills with commas or new lines.</small>
-              </label>
-              <label className="full">
-                <span>Optional skills</span>
-                <textarea
-                  value={draft.optionalSkills}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      optionalSkills: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-              <label>
-                <span>Minimum experience</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="40"
-                  value={draft.minimumExperienceYears}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      minimumExperienceYears: Number(event.target.value),
-                    }))
-                  }
-                />
-              </label>
-              <label>
-                <span>Education keywords</span>
-                <input
-                  value={draft.educationKeywords}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      educationKeywords: event.target.value,
-                    }))
-                  }
-                  placeholder="Computer science, software engineering"
-                />
-              </label>
-            </div>
-
-            <div className="weight-editor">
-              <div className="section-header">
-                <div>
-                  <h2>Score weights</h2>
-                  <p>
-                    Current total: {weightTotal}%. Values are normalized when
-                    saved.
-                  </p>
-                </div>
-              </div>
-              {(
-                [
-                  ["skillsWeight", "Skills"],
-                  ["experienceWeight", "Experience"],
-                  ["educationWeight", "Education"],
-                  ["impactWeight", "Measured impact"],
-                ] as const
-              ).map(([field, label]) => (
-                <label key={field}>
-                  <span>
-                    {label} <strong>{draft[field]}%</strong>
-                  </span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="5"
-                    value={draft[field]}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        [field]: Number(event.target.value),
-                      }))
-                    }
-                  />
-                </label>
-              ))}
-            </div>
-
-            {message && (
-              <p className="form-message" role="status">
-                {message}
-              </p>
-            )}
-            <div className="editor-actions">
-              <button className="text-button danger-link" onClick={removeProfile}>
-                Delete profile
-              </button>
-              <button className="button primary" onClick={saveProfile}>
-                Save profile
-              </button>
-            </div>
-          </section>
+          <JobProfileEditor
+            draft={draft}
+            draftProfile={draftProfile}
+            weightTotal={weightTotal}
+            message={message}
+            onDraftChange={updateDraft}
+            onSave={saveProfile}
+            onRemove={removeProfile}
+          />
         )}
       </div>
+
+      <ConfirmationDialog
+        open={confirmation !== null}
+        tone="danger"
+        title={
+          confirmation?.type === "restore-defaults"
+            ? "Restore default profiles?"
+            : "Delete job profile?"
+        }
+        description={
+          confirmation?.type === "restore-defaults"
+            ? "All custom job profiles will be replaced with the built-in defaults."
+            : `Delete ${confirmation?.profileName ?? "this profile"}? Candidates already analyzed will remain, but this matching configuration will be removed.`
+        }
+        confirmLabel={
+          confirmation?.type === "restore-defaults"
+            ? "Restore defaults"
+            : "Delete profile"
+        }
+        onConfirm={confirmJobProfileAction}
+        onCancel={() => setConfirmation(null)}
+      />
     </>
   );
-}
-
-function toDraft(profile: JobProfile): JobDraft {
-  return {
-    name: profile.name,
-    description: profile.description,
-    requiredSkills: profile.requiredSkills.join(", "),
-    optionalSkills: profile.optionalSkills.join(", "),
-    minimumExperienceYears: profile.minimumExperienceYears,
-    educationKeywords: profile.educationKeywords.join(", "),
-    skillsWeight: Math.round(profile.weights.skills),
-    experienceWeight: Math.round(profile.weights.experience),
-    educationWeight: Math.round(profile.weights.education),
-    impactWeight: Math.round(profile.weights.impact),
-  };
-}
-
-function parseList(value: string) {
-  return [
-    ...new Set(
-      value
-        .split(/[,\n]/)
-        .map((item) => item.trim())
-        .filter(Boolean),
-    ),
-  ];
 }

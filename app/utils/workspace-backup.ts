@@ -1,22 +1,16 @@
 import type { JobProfile } from "../data/job-profiles.ts";
 import type { Candidate } from "../data/mock-data.ts";
 import type { WorkspaceNotification } from "../hooks/use-notifications";
+import {
+  migrateWorkspacePreferences,
+  migrateWorkspaceValue,
+  WORKSPACE_PREFERENCE_KEYS,
+  WORKSPACE_SCHEMA_VERSION,
+  WORKSPACE_STORAGE_KEYS,
+} from "./workspace-migrations.ts";
 
-export const WORKSPACE_BACKUP_VERSION = 1;
-
-export const WORKSPACE_PREFERENCE_KEYS = [
-  "talentlens-theme",
-  "talentlens-candidate-query",
-  "talentlens-candidate-status",
-  "talentlens-candidate-view",
-  "talentlens-candidate-min-score",
-  "talentlens-candidate-role",
-  "talentlens-candidate-sort",
-  "talentlens-analytics-range",
-  "talentlens-pipeline-range",
-  "talentlens-privacy-acknowledged",
-  "talentlens-retention-days",
-] as const;
+export const WORKSPACE_BACKUP_VERSION = WORKSPACE_SCHEMA_VERSION;
+export { WORKSPACE_PREFERENCE_KEYS };
 
 export type WorkspaceBackup = {
   product: "TalentLens";
@@ -56,30 +50,90 @@ export function parseWorkspaceBackup(value: string): WorkspaceBackup {
   if (
     !isRecord(parsed) ||
     parsed.product !== "TalentLens" ||
-    parsed.schemaVersion !== WORKSPACE_BACKUP_VERSION ||
+    !isSupportedBackupVersion(parsed.schemaVersion) ||
     typeof parsed.exportedAt !== "string" ||
-    !isRecord(parsed.data) ||
-    !isCandidateArray(parsed.data.candidates) ||
-    !isJobProfileArray(parsed.data.jobProfiles) ||
-    typeof parsed.data.selectedJobId !== "string" ||
-    !isNotificationArray(parsed.data.notifications) ||
-    !isRecord(parsed.data.preferences)
+    !isRecord(parsed.data)
   ) {
     throw new Error(
       "This file is not a compatible TalentLens workspace backup.",
     );
   }
 
-  const selectedJobId = parsed.data.selectedJobId;
+  const migrated = {
+    product: "TalentLens",
+    schemaVersion: WORKSPACE_BACKUP_VERSION,
+    exportedAt: parsed.exportedAt,
+    data: migrateBackupData(parsed.data),
+  } satisfies WorkspaceBackup;
+
   if (
-    !parsed.data.jobProfiles.some(
+    !isCandidateArray(migrated.data.candidates) ||
+    !isJobProfileArray(migrated.data.jobProfiles) ||
+    typeof migrated.data.selectedJobId !== "string" ||
+    !isNotificationArray(migrated.data.notifications) ||
+    !isRecord(migrated.data.preferences)
+  ) {
+    throw new Error(
+      "This file is not a compatible TalentLens workspace backup.",
+    );
+  }
+
+  const selectedJobId = migrated.data.selectedJobId;
+  if (
+    !migrated.data.jobProfiles.some(
       (profile) => profile.id === selectedJobId,
     )
   ) {
     throw new Error("The backup references a missing selected job profile.");
   }
 
-  return parsed as WorkspaceBackup;
+  return migrated;
+}
+
+function migrateBackupData(data: Record<string, unknown>): WorkspaceBackup["data"] {
+  if (
+    !Array.isArray(data.candidates) ||
+    !Array.isArray(data.jobProfiles) ||
+    data.jobProfiles.length === 0 ||
+    typeof data.selectedJobId !== "string" ||
+    !Array.isArray(data.notifications)
+  ) {
+    throw new Error(
+      "This file is not a compatible TalentLens workspace backup.",
+    );
+  }
+
+  const candidates = migrateWorkspaceValue(
+    WORKSPACE_STORAGE_KEYS.candidates,
+    data.candidates,
+  ).value;
+  const jobProfiles = migrateWorkspaceValue(
+    WORKSPACE_STORAGE_KEYS.jobProfiles,
+    data.jobProfiles,
+  ).value;
+  const selectedJobId = migrateWorkspaceValue(
+    WORKSPACE_STORAGE_KEYS.selectedJobProfile,
+    data.selectedJobId,
+  ).value;
+  const notifications = migrateWorkspaceValue(
+    WORKSPACE_STORAGE_KEYS.notifications,
+    data.notifications,
+  ).value;
+  const preferences = migrateWorkspacePreferences(
+    isRecord(data.preferences) ? data.preferences : {},
+  );
+
+  return {
+    candidates: candidates as Candidate[],
+    jobProfiles: jobProfiles as JobProfile[],
+    selectedJobId: selectedJobId as string,
+    notifications: notifications as WorkspaceNotification[],
+    preferences,
+  };
+}
+
+function isSupportedBackupVersion(value: unknown) {
+  return value === 1 || value === WORKSPACE_BACKUP_VERSION;
 }
 
 function isCandidateArray(value: unknown): value is Candidate[] {
@@ -120,6 +174,8 @@ function isJobProfileArray(value: unknown): value is JobProfile[] {
         typeof profile.description === "string" &&
         isStringArray(profile.requiredSkills) &&
         isStringArray(profile.optionalSkills) &&
+        isOptionalRequiredSkillStrictness(profile.requiredSkillStrictness) &&
+        isOptionalSkillAliases(profile.skillAliases) &&
         typeof profile.minimumExperienceYears === "number" &&
         profile.minimumExperienceYears >= 0 &&
         isStringArray(profile.educationKeywords) &&
@@ -127,6 +183,27 @@ function isJobProfileArray(value: unknown): value is JobProfile[] {
         typeof profile.createdAt === "string" &&
         typeof profile.updatedAt === "string",
     )
+  );
+}
+
+function isOptionalRequiredSkillStrictness(value: unknown) {
+  return (
+    value === undefined ||
+    value === "flexible" ||
+    value === "balanced" ||
+    value === "strict"
+  );
+}
+
+function isOptionalSkillAliases(value: unknown) {
+  return (
+    value === undefined ||
+    (isRecord(value) &&
+      Object.values(value).every(
+        (aliases) =>
+          Array.isArray(aliases) &&
+          aliases.every((alias) => typeof alias === "string"),
+      ))
   );
 }
 

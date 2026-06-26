@@ -8,6 +8,12 @@ import {
   analyzeResumeText,
   matchesSkill,
 } from "../app/utils/local-resume-analysis.ts";
+import { ANALYSIS_VERSION } from "../app/data/mock-data.ts";
+import {
+  frontendFalsePositiveResume,
+  frontendStrictMissingRequiredResume,
+  frontendStrongAliasResume,
+} from "./fixtures/resume-scoring-fixtures.ts";
 
 const frontendProfile = defaultJobProfiles.find(
   (profile) => profile.id === "staff-frontend-engineer",
@@ -22,6 +28,12 @@ test("skill matching respects word boundaries and aliases", () => {
   assert.equal(matchesSkill("Built interfaces with JavaScript.", "Java"), false);
   assert.equal(matchesSkill("Used NoSQL databases.", "SQL"), false);
   assert.equal(matchesSkill("Production NodeJS APIs.", "Node.js"), true);
+  assert.equal(
+    matchesSkill("Built typed JavaScript systems.", "TypeScript", [
+      "typed javascript",
+    ]),
+    true,
+  );
 });
 
 test("weight normalization always produces a 100 percent total", () => {
@@ -80,4 +92,55 @@ test("profile scoring rewards explicit role evidence", () => {
   assert.ok(strong.matchedRequiredSkills?.includes("TypeScript"));
   assert.equal(strong.targetJobId, frontendProfile.id);
   assert.equal(weak.status, "Reject");
+  assert.equal(strong.analysisVersion, ANALYSIS_VERSION);
+});
+
+test("custom aliases reduce false negatives", () => {
+  const candidate = analyzeResumeText(
+    frontendStrongAliasResume,
+    "frontend-alias.txt",
+    "2 KB",
+    {
+      ...frontendProfile,
+      skillAliases: {
+        ...frontendProfile.skillAliases,
+        TypeScript: ["typed JavaScript"],
+      },
+    },
+    102,
+  );
+
+  assert.ok(candidate.matchedRequiredSkills?.includes("TypeScript"));
+  assert.equal(candidate.status, "Hire");
+});
+
+test("strict required skills reject thin matches even with seniority", () => {
+  const candidate = analyzeResumeText(
+    frontendStrictMissingRequiredResume,
+    "frontend-missing-required.txt",
+    "2 KB",
+    {
+      ...frontendProfile,
+      requiredSkillStrictness: "strict",
+    },
+    103,
+  );
+
+  assert.equal(candidate.status, "Reject");
+  assert.ok(candidate.missingRequiredSkills?.includes("React"));
+  assert.ok(candidate.missingRequiredSkills?.includes("TypeScript"));
+});
+
+test("fixtures catch common false positives", () => {
+  const candidate = analyzeResumeText(
+    frontendFalsePositiveResume,
+    "frontend-false-positive.txt",
+    "2 KB",
+    frontendProfile,
+    104,
+  );
+
+  assert.equal(candidate.matchedRequiredSkills?.includes("JavaScript"), false);
+  assert.equal(candidate.matchedRequiredSkills?.includes("TypeScript"), false);
+  assert.equal(candidate.status, "Reject");
 });

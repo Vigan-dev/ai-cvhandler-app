@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import {
+  ANALYSIS_VERSION,
   candidates as initialCandidates,
   type Candidate,
   type CandidateStage,
@@ -60,6 +61,7 @@ function migrateCandidate(candidate: Candidate): Candidate {
       stage: normalizeStage(candidate.stage, candidate.status),
       notes: candidate.notes ?? "",
       analyzedAt: candidate.analyzedAt ?? new Date().toISOString(),
+      analysisVersion: candidate.analysisVersion ?? ANALYSIS_VERSION,
     };
   }
 
@@ -70,6 +72,7 @@ function migrateCandidate(candidate: Candidate): Candidate {
       targetRole: candidate.targetRole ?? candidate.role,
       stage: normalizeStage(candidate.stage, candidate.status),
       notes: candidate.notes ?? "",
+      analysisVersion: candidate.analysisVersion ?? ANALYSIS_VERSION,
     };
   }
 
@@ -80,6 +83,7 @@ function migrateCandidate(candidate: Candidate): Candidate {
       : demo.status,
     stage: normalizeStage(candidate.stage, demo.status),
     notes: typeof candidate.notes === "string" ? candidate.notes : "",
+    analysisVersion: candidate.analysisVersion ?? ANALYSIS_VERSION,
   };
 }
 

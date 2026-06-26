@@ -5,6 +5,7 @@ import {
   defaultJobProfiles,
   type JobProfile,
   type JobProfileWeights,
+  type RequiredSkillStrictness,
   normalizeWeights,
 } from "../data/job-profiles";
 import { usePersistentState } from "./use-persistent-state";
@@ -42,6 +43,8 @@ function isJobProfileArray(value: unknown): value is JobProfile[] {
         typeof profile.description === "string" &&
         isStringArray(profile.requiredSkills) &&
         isStringArray(profile.optionalSkills) &&
+        isOptionalRequiredSkillStrictness(profile.requiredSkillStrictness) &&
+        isOptionalSkillAliases(profile.skillAliases) &&
         typeof profile.minimumExperienceYears === "number" &&
         profile.minimumExperienceYears >= 0 &&
         isStringArray(profile.educationKeywords) &&
@@ -49,6 +52,31 @@ function isJobProfileArray(value: unknown): value is JobProfile[] {
         typeof profile.createdAt === "string" &&
         typeof profile.updatedAt === "string",
     )
+  );
+}
+
+function isOptionalRequiredSkillStrictness(
+  value: unknown,
+): value is RequiredSkillStrictness | undefined {
+  return (
+    value === undefined ||
+    value === "flexible" ||
+    value === "balanced" ||
+    value === "strict"
+  );
+}
+
+function isOptionalSkillAliases(
+  value: unknown,
+): value is Record<string, string[]> | undefined {
+  return (
+    value === undefined ||
+    (isRecord(value) &&
+      Object.values(value).every(
+        (aliases) =>
+          Array.isArray(aliases) &&
+          aliases.every((alias) => typeof alias === "string"),
+      ))
   );
 }
 

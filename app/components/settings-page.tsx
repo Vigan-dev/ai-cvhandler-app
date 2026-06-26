@@ -23,8 +23,11 @@ import {
   serializeWorkspaceBackup,
   WORKSPACE_PREFERENCE_KEYS,
 } from "../utils/workspace-backup";
+import { ConfirmationDialog } from "./confirmation-dialog";
 import { Icons } from "./icons";
 import { PageHeader } from "./ui";
+
+type SettingsConfirmation = "clear-candidates" | "reset-workspace";
 
 export function SettingsPage() {
   const [candidates, setCandidates, candidatesHydrated] = useCandidates();
@@ -35,6 +38,8 @@ export function SettingsPage() {
     usePrivacyAcknowledged();
   const [retentionDays, setRetentionDays] = useRetentionDays();
   const [message, setMessage] = useState("");
+  const [confirmation, setConfirmation] =
+    useState<SettingsConfirmation | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
   const storageBytes = candidatesHydrated ? getWorkspaceStorageBytes() : 0;
 
@@ -114,30 +119,27 @@ export function SettingsPage() {
   }
 
   function clearCandidates() {
-    if (
-      !window.confirm(
-        "Delete all candidate profiles from this browser? Export a backup first if you may need them.",
-      )
-    ) {
-      return;
-    }
-    setCandidates([]);
-    setMessage("All candidate profiles were removed.");
+    setConfirmation("clear-candidates");
   }
 
   function resetWorkspace() {
-    if (
-      !window.confirm(
-        "Reset the entire local workspace? Candidates, job profiles, notifications, filters, and preferences will be deleted.",
-      )
-    ) {
+    setConfirmation("reset-workspace");
+  }
+
+  function confirmSettingsAction() {
+    if (confirmation === "clear-candidates") {
+      setConfirmation(null);
+      setCandidates([]);
+      setMessage("All candidate profiles were removed.");
       return;
     }
 
-    Object.keys(localStorage)
-      .filter((key) => key.startsWith("talentlens-"))
-      .forEach((key) => localStorage.removeItem(key));
-    window.location.reload();
+    if (confirmation === "reset-workspace") {
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith("talentlens-"))
+        .forEach((key) => localStorage.removeItem(key));
+      window.location.reload();
+    }
   }
 
   return (
@@ -289,6 +291,28 @@ export function SettingsPage() {
           {message}
         </p>
       )}
+
+      <ConfirmationDialog
+        open={confirmation !== null}
+        tone="danger"
+        title={
+          confirmation === "reset-workspace"
+            ? "Reset local workspace?"
+            : "Delete candidate profiles?"
+        }
+        description={
+          confirmation === "reset-workspace"
+            ? "Candidates, job profiles, notifications, filters, and preferences will be deleted from this browser."
+            : "All candidate profiles in this browser will be removed. Export a backup first if you may need them later."
+        }
+        confirmLabel={
+          confirmation === "reset-workspace"
+            ? "Reset workspace"
+            : "Delete candidates"
+        }
+        onConfirm={confirmSettingsAction}
+        onCancel={() => setConfirmation(null)}
+      />
     </>
   );
 }

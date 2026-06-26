@@ -2,6 +2,8 @@ export type CandidateStatus = "Hire" | "Review" | "Reject";
 export type CandidateStage = "New" | "Review" | "Interview" | "Rejected";
 export type AnalysisConfidence = "High" | "Medium" | "Low";
 
+export const ANALYSIS_VERSION = "local-rules-v1";
+
 export type Candidate = {
   id: number;
   name: string;
@@ -24,6 +26,7 @@ export type Candidate = {
   strengths: string[];
   weaknesses: string[];
   sourceFile?: string;
+  sourceFingerprint?: string;
   summary?: string;
   experienceYears?: number;
   educationText?: string;
@@ -31,6 +34,7 @@ export type Candidate = {
   analyzedAt?: string;
   sourceSize?: string;
   analysisConfidence?: AnalysisConfidence;
+  analysisVersion?: string;
   scoreReasons?: string[];
   matchedRequiredSkills?: string[];
   missingRequiredSkills?: string[];
@@ -62,6 +66,7 @@ export const candidates: Candidate[] = [
     summary:
       "Maya is a strong match for the Senior Product Designer role, with relevant design-system leadership, product thinking, and user-research experience.",
     analyzedAt: "2026-06-24T10:48:00.000Z",
+    analysisVersion: ANALYSIS_VERSION,
   },
   {
     id: 2,
@@ -87,6 +92,7 @@ export const candidates: Candidate[] = [
     summary:
       "Daniel is a strong match for the Staff Frontend Engineer role, with deep React architecture, accessibility, and technical-leadership experience.",
     analyzedAt: "2026-06-24T10:26:00.000Z",
+    analysisVersion: ANALYSIS_VERSION,
   },
   {
     id: 3,
@@ -112,6 +118,7 @@ export const candidates: Candidate[] = [
     summary:
       "Sofia is a promising match for a senior product role, with strong B2B strategy and analytics experience, but her people-management depth needs review.",
     analyzedAt: "2026-06-24T09:00:00.000Z",
+    analysisVersion: ANALYSIS_VERSION,
   },
   {
     id: 4,
@@ -137,6 +144,7 @@ export const candidates: Candidate[] = [
     summary:
       "Lucas has strong machine-learning and academic foundations, but needs further evaluation of production deployment experience.",
     analyzedAt: "2026-06-24T08:00:00.000Z",
+    analysisVersion: ANALYSIS_VERSION,
   },
   {
     id: 5,
@@ -162,6 +170,7 @@ export const candidates: Candidate[] = [
     summary:
       "Amelia demonstrates broad qualitative research capability, with quantitative methods and recent portfolio depth requiring further review.",
     analyzedAt: "2026-06-23T11:00:00.000Z",
+    analysisVersion: ANALYSIS_VERSION,
   },
   {
     id: 6,
@@ -187,5 +196,6 @@ export const candidates: Candidate[] = [
     summary:
       "Noah has relevant backend fundamentals, but his current seniority and distributed-systems experience do not yet meet the target role.",
     analyzedAt: "2026-06-23T09:00:00.000Z",
+    analysisVersion: ANALYSIS_VERSION,
   },
 ];
