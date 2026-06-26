@@ -32,6 +32,7 @@ export function usePersistentState<T>(
   const valueRef = useRef(value);
   const initialValueRef = useRef(initialValue);
   const validateRef = useRef(options.validate);
+  const synchronizeRef = useRef<StorageListener | null>(null);
 
   useEffect(() => {
     valueRef.current = value;
@@ -50,11 +51,14 @@ export function usePersistentState<T>(
 
       const migrated = migrateWorkspaceValue(key, nextValue);
       if (!isValid(migrated.value, validateRef.current)) return;
-      valueRef.current = migrated.value;
-      setValue(migrated.value);
+      if (!isJsonEqual(valueRef.current, migrated.value)) {
+        valueRef.current = migrated.value;
+        setValue(migrated.value);
+      }
       if (migrated.migrated) writeStoredValue(key, migrated.value);
       recordWorkspaceSchemaVersion(key);
     };
+    synchronizeRef.current = synchronize;
 
     const keyListeners = listeners.get(key) ?? new Set<StorageListener>();
     keyListeners.add(synchronize);
@@ -92,6 +96,7 @@ export function usePersistentState<T>(
       window.removeEventListener("storage", handleStorage);
       keyListeners.delete(synchronize);
       if (keyListeners.size === 0) listeners.delete(key);
+      if (synchronizeRef.current === synchronize) synchronizeRef.current = null;
     };
   }, [key]);
 
@@ -101,12 +106,19 @@ export function usePersistentState<T>(
         typeof action === "function"
           ? (action as (current: T) => T)(valueRef.current)
           : action;
+      const migrated = migrateWorkspaceValue(key, nextValue);
+      if (!isValid(migrated.value, validateRef.current)) return;
+      const committedValue = migrated.value;
 
-      valueRef.current = nextValue;
-      setValue(nextValue);
-      writeStoredValue(key, nextValue);
+      if (!isJsonEqual(valueRef.current, committedValue)) {
+        valueRef.current = committedValue;
+        setValue(committedValue);
+      }
+      writeStoredValue(key, committedValue);
 
-      listeners.get(key)?.forEach((listener) => listener(nextValue));
+      listeners.get(key)?.forEach((listener) => {
+        if (listener !== synchronizeRef.current) listener(committedValue);
+      });
     },
     [key],
   );
@@ -143,7 +155,10 @@ function readStoredValue<T>(
 
 function writeStoredValue<T>(key: string, value: T) {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    const serialized = JSON.stringify(value);
+    if (localStorage.getItem(key) !== serialized) {
+      localStorage.setItem(key, serialized);
+    }
     recordWorkspaceSchemaVersion(key);
   } catch {
     notifyStorageFailure();
@@ -154,10 +169,10 @@ function recordWorkspaceSchemaVersion(key: string) {
   if (key === WORKSPACE_SCHEMA_STORAGE_KEY) return;
 
   try {
-    localStorage.setItem(
-      WORKSPACE_SCHEMA_STORAGE_KEY,
-      JSON.stringify(WORKSPACE_SCHEMA_VERSION),
-    );
+    const serialized = JSON.stringify(WORKSPACE_SCHEMA_VERSION);
+    if (localStorage.getItem(WORKSPACE_SCHEMA_STORAGE_KEY) !== serialized) {
+      localStorage.setItem(WORKSPACE_SCHEMA_STORAGE_KEY, serialized);
+    }
   } catch {
     notifyStorageFailure();
   }
@@ -178,6 +193,10 @@ function isValid<T>(
   validate?: (value: unknown) => value is T,
 ): value is T {
   return validate ? validate(value) : true;
+}
+
+function isJsonEqual(left: unknown, right: unknown) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function notifyStorageFailure() {
