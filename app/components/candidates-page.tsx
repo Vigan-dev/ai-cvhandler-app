@@ -9,6 +9,10 @@ import {
   useSelectedJobProfileId,
 } from "../hooks/use-job-profiles";
 import { usePersistentState } from "../hooks/use-persistent-state";
+import {
+  getMatchSignalLabel,
+  matchSignalOptions,
+} from "../utils/match-signal-labels";
 import { downloadCsv } from "../utils/download-csv";
 import { Avatar, PageHeader, ScoreRing, StatusBadge } from "./ui";
 import { Icons } from "./icons";
@@ -87,7 +91,7 @@ export function CandidatesPage() {
   const activeAdvancedFilters =
     Number(minimumScore > 0) + Number(selectedRole !== "All roles");
   const topScore = Math.max(0, ...candidates.map((candidate) => candidate.score));
-  const hireCount = candidates.filter((candidate) => candidate.status === "Hire").length;
+  const strongMatchCount = candidates.filter((candidate) => candidate.status === "Hire").length;
   const reviewCount = candidates.filter((candidate) => candidate.status === "Review").length;
   const averageScore = candidates.length
     ? (
@@ -106,7 +110,7 @@ export function CandidatesPage() {
 
   function exportCandidates() {
     downloadCsv("talentlens-candidates.csv", [
-      ["Candidate", "Current role", "Target role", "Location", "Score", "Skills", "Experience", "Education", "Recommendation", "Stage"],
+      ["Candidate", "Current role", "Target role", "Location", "Score", "Skills", "Experience", "Education", "Match signal", "Stage"],
       ...filtered.map((candidate) => [
         candidate.name,
         candidate.role,
@@ -116,7 +120,7 @@ export function CandidatesPage() {
         candidate.skills,
         candidate.experience,
         candidate.education,
-        candidate.status,
+        getMatchSignalLabel(candidate.status),
         candidate.stage,
       ]),
     ]);
@@ -138,7 +142,7 @@ export function CandidatesPage() {
 
       <section className="candidate-summary-strip">
         <div><span>Top match</span><strong>{topScore}</strong><small>/100</small></div>
-        <div><span>Recommended to hire</span><strong>{hireCount}</strong><small>candidates</small></div>
+        <div><span>Strong matches</span><strong>{strongMatchCount}</strong><small>candidates</small></div>
         <div><span>Average score</span><strong>{averageScore}</strong><small>/100</small></div>
         <div><span>Needs review</span><strong>{reviewCount}</strong><small>candidates</small></div>
       </section>
@@ -146,9 +150,12 @@ export function CandidatesPage() {
       <section className="card candidates-card">
         <div className="candidate-toolbar">
           <label className="candidate-search"><Icons.search size={17} /><span className="sr-only">Search candidate results</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search candidates..." /></label>
-          <div className="filter-tabs" aria-label="Filter by recommendation">
-            {["All", "Hire", "Review", "Reject"].map((item) => (
-              <button key={item} onClick={() => setStatus(item as "All" | CandidateStatus)} className={status === item ? "active" : ""}>{item}{item === "All" && <span>{candidates.length}</span>}</button>
+          <div className="filter-tabs" aria-label="Filter by match signal">
+            {(["All", ...matchSignalOptions] as Array<"All" | CandidateStatus>).map((item) => (
+              <button key={item} onClick={() => setStatus(item)} className={status === item ? "active" : ""}>
+                {item === "All" ? "All" : getMatchSignalLabel(item)}
+                {item === "All" && <span>{candidates.length}</span>}
+              </button>
             ))}
           </div>
           <button
@@ -199,7 +206,7 @@ export function CandidatesPage() {
         ) : view === "table" ? (
           <div className="table-wrap">
             <table className="data-table candidate-table">
-              <thead><tr><th>Candidate</th><th>Local score</th><th>Skill match</th><th>Experience</th><th>Education</th><th>Recommendation</th><th>Stage</th><th><span className="sr-only">Open</span></th></tr></thead>
+              <thead><tr><th>Candidate</th><th>Local score</th><th>Skill match</th><th>Experience</th><th>Education</th><th>Match signal</th><th>Stage</th><th><span className="sr-only">Open</span></th></tr></thead>
               <tbody>
                 {filtered.map((candidate) => (
                   <tr key={candidate.id}>

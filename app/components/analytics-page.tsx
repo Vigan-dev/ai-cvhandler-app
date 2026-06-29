@@ -13,6 +13,7 @@ import {
   type InsightRange,
 } from "../utils/candidate-insights";
 import { downloadCsv } from "../utils/download-csv";
+import { getMatchSignalLabel } from "../utils/match-signal-labels";
 import { Avatar, PageHeader, SectionHeader, StatusBadge } from "./ui";
 import { Icons } from "./icons";
 
@@ -72,9 +73,9 @@ export function AnalyticsPage() {
       ["Range", range],
       ["Role", selectedRole],
       ["Candidates", metrics.total],
-      ["Hire recommendations", metrics.hireCount],
-      ["Review recommendations", metrics.reviewCount],
-      ["Rejected recommendations", metrics.rejectCount],
+      [`${getMatchSignalLabel("Hire")} profiles`, metrics.hireCount],
+      [`${getMatchSignalLabel("Review")} profiles`, metrics.reviewCount],
+      [`${getMatchSignalLabel("Reject")} profiles`, metrics.rejectCount],
       ["Average quality", metrics.averageScore.toFixed(1)],
       ["Interview stage", metrics.interviewCount],
     ]);
@@ -117,7 +118,7 @@ export function AnalyticsPage() {
           <strong>{metrics.total}</strong>
         </article>
         <article>
-          <span>Hire recommendation rate</span>
+          <span>Strong match rate</span>
           <strong>{metrics.shortlistRate.toFixed(1)}%</strong>
         </article>
         <article>
@@ -187,15 +188,15 @@ export function AnalyticsPage() {
           <div className="distribution-summary">
             <span>
               <i className="high-dot" />
-              <strong>{metrics.hireCount}</strong> Hire
+              <strong>{metrics.hireCount}</strong> {getMatchSignalLabel("Hire")}
             </span>
             <span>
               <i className="mid-dot" />
-              <strong>{metrics.reviewCount}</strong> Review
+              <strong>{metrics.reviewCount}</strong> {getMatchSignalLabel("Review")}
             </span>
             <span>
               <i className="low-dot" />
-              <strong>{metrics.rejectCount}</strong> Reject
+              <strong>{metrics.rejectCount}</strong> {getMatchSignalLabel("Reject")}
             </span>
           </div>
         </section>
@@ -309,7 +310,7 @@ export function AnalyticsPage() {
         <section className="card insight-detail">
           <strong>How this is calculated</strong>
           <p>
-            Skill frequency, scores, recommendations, and workflow stages are
+            Skill frequency, scores, match signals, and workflow stages are
             aggregated from the locally stored candidate records matching the
             selected date range and role.
           </p>

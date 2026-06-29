@@ -10,6 +10,7 @@ import type {
 } from "../data/mock-data";
 import { useCandidates } from "../hooks/use-candidates";
 import { downloadCsv } from "../utils/download-csv";
+import { getMatchSignalLabel } from "../utils/match-signal-labels";
 import { CandidateHero } from "./candidate-details/CandidateHero";
 import { ExperiencePanel } from "./candidate-details/ExperiencePanel";
 import { MissingCandidate } from "./candidate-details/MissingCandidate";
@@ -48,7 +49,7 @@ export function CandidateDetailsPage({
   const selectedCandidate = candidate;
   const scoreLabel = getScoreLabel(selectedCandidate.score);
   const targetRole = selectedCandidate.targetRole ?? selectedCandidate.role;
-  const recommendationCopy = getRecommendationCopy(
+  const matchSignalCopy = getMatchSignalCopy(
     selectedCandidate,
     targetRole,
   );
@@ -66,7 +67,7 @@ export function CandidateDetailsPage({
         ["Skills score", selectedCandidate.skills],
         ["Experience score", selectedCandidate.experience],
         ["Education score", selectedCandidate.education],
-        ["Recommendation", selectedCandidate.status],
+        ["Match signal", getMatchSignalLabel(selectedCandidate.status)],
         ["Stage", selectedCandidate.stage],
         ["Skills detected", selectedCandidate.tags.join(", ")],
         ["Source file", selectedCandidate.sourceFile ?? "Demo candidate"],
@@ -109,7 +110,7 @@ export function CandidateDetailsPage({
     });
   }
 
-  function updateRecommendation(status: CandidateStatus) {
+  function updateMatchSignal(status: CandidateStatus) {
     updateCandidate({
       status,
       stage:
@@ -180,9 +181,9 @@ export function CandidateDetailsPage({
           candidate={selectedCandidate}
           scoreLabel={scoreLabel}
           targetRole={targetRole}
-          recommendationCopy={recommendationCopy}
+          matchSignalCopy={matchSignalCopy}
           onMoveToInterview={moveToInterview}
-          onRecommendationChange={updateRecommendation}
+          onMatchSignalChange={updateMatchSignal}
           onStageChange={updateStage}
           onRemoveCandidate={removeCandidate}
         />
@@ -233,12 +234,12 @@ function getScoreLabel(score: number) {
   return "Limited match";
 }
 
-function getRecommendationCopy(candidate: Candidate, targetRole: string) {
+function getMatchSignalCopy(candidate: Candidate, targetRole: string) {
   if (candidate.status === "Hire") {
-    return `The local analysis found strong alignment with the ${targetRole} requirements.`;
+    return `The local analysis found strong evidence aligned with the ${targetRole} requirements.`;
   }
   if (candidate.status === "Review") {
-    return `The profile has partial alignment with ${targetRole} and needs human review before progressing.`;
+    return `The profile has partial evidence for ${targetRole} and needs human review before any next step.`;
   }
-  return `The profile currently falls below the matching threshold for ${targetRole}.`;
+  return `The profile currently has limited explicit evidence for ${targetRole}.`;
 }

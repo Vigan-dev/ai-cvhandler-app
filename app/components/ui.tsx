@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Candidate, CandidateStatus } from "../data/mock-data";
+import { getMatchSignalLabel } from "../utils/match-signal-labels";
 import { Icons } from "./icons";
 
 export function PageHeader({
@@ -29,7 +30,7 @@ export function StatusBadge({ status }: { status: CandidateStatus }) {
   return (
     <span className={`status-badge status-${status.toLowerCase()}`}>
       <span aria-hidden="true" />
-      {status}
+      {getMatchSignalLabel(status)}
     </span>
   );
 }

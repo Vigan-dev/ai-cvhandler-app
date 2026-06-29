@@ -3,29 +3,35 @@ import type {
   CandidateStage,
   CandidateStatus,
 } from "../../data/mock-data";
+import {
+  getMatchSignalLabel,
+  matchSignalOptions,
+} from "../../utils/match-signal-labels";
 
 export function WorkflowControls({
   candidate,
-  onRecommendationChange,
+  onMatchSignalChange,
   onStageChange,
 }: {
   candidate: Candidate;
-  onRecommendationChange: (status: CandidateStatus) => void;
+  onMatchSignalChange: (status: CandidateStatus) => void;
   onStageChange: (stage: CandidateStage) => void;
 }) {
   return (
     <div className="workflow-controls">
       <label>
-        <span>Recommendation</span>
+        <span>Match signal</span>
         <select
           value={candidate.status}
           onChange={(event) =>
-            onRecommendationChange(event.target.value as CandidateStatus)
+            onMatchSignalChange(event.target.value as CandidateStatus)
           }
         >
-          <option value="Hire">Hire</option>
-          <option value="Review">Review</option>
-          <option value="Reject">Reject</option>
+          {matchSignalOptions.map((status) => (
+            <option value={status} key={status}>
+              {getMatchSignalLabel(status)}
+            </option>
+          ))}
         </select>
       </label>
       <label>

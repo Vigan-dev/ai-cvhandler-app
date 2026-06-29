@@ -896,12 +896,12 @@
   border-radius: inherit;
 }
 
-.recommendation-card {
+.match-signal-card {
   text-align: left;
   background: var(--surface) !important;
 }
 
-.recommendation-icon {
+.match-signal-icon {
   width: 38px;
   height: 38px;
   display: grid;
@@ -913,22 +913,22 @@
   font-weight: 750;
 }
 
-.recommendation-review .recommendation-icon {
+.match-signal-review .match-signal-icon {
   color: var(--orange);
   background: var(--orange-soft);
 }
 
-.recommendation-reject .recommendation-icon {
+.match-signal-reject .match-signal-icon {
   color: var(--red);
   background: var(--red-soft);
 }
 
-.recommendation-card h2 {
+.match-signal-card h2 {
   margin: 0;
   font-size: 15px;
 }
 
-.recommendation-card p {
+.match-signal-card p {
   margin: 7px 0 14px;
   color: var(--text-soft);
   font-size: 13px;
@@ -960,7 +960,7 @@
   padding: 0 10px;
 }
 
-.recommendation-card .button {
+.match-signal-card .button {
   width: 100%;
 }
 

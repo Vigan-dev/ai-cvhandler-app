@@ -3,6 +3,7 @@ import type {
   CandidateStage,
   CandidateStatus,
 } from "../../data/mock-data";
+import { getMatchSignalLabel } from "../../utils/match-signal-labels";
 import { Icons } from "../icons";
 import { ScoreRing } from "../ui";
 import { WorkflowControls } from "./WorkflowControls";
@@ -11,18 +12,18 @@ export function ScorePanel({
   candidate,
   scoreLabel,
   targetRole,
-  recommendationCopy,
+  matchSignalCopy,
   onMoveToInterview,
-  onRecommendationChange,
+  onMatchSignalChange,
   onStageChange,
   onRemoveCandidate,
 }: {
   candidate: Candidate;
   scoreLabel: string;
   targetRole: string;
-  recommendationCopy: string;
+  matchSignalCopy: string;
   onMoveToInterview: () => void;
-  onRecommendationChange: (status: CandidateStatus) => void;
+  onMatchSignalChange: (status: CandidateStatus) => void;
   onStageChange: (stage: CandidateStage) => void;
   onRemoveCandidate: () => void;
 }) {
@@ -33,7 +34,7 @@ export function ScorePanel({
         <div className="hero-score">
           <ScoreRing value={candidate.score} size={124} />
           <span>{scoreLabel}</span>
-          <small>Review before making a hiring decision</small>
+          <small>Review source material before taking action</small>
         </div>
         <div className="score-breakdown">
           <ScoreLine label="Skills match" value={candidate.skills} />
@@ -43,9 +44,9 @@ export function ScorePanel({
       </section>
 
       <section
-        className={`card recommendation-card recommendation-${candidate.status.toLowerCase()}`}
+        className={`card match-signal-card match-signal-${candidate.status.toLowerCase()}`}
       >
-        <span className="recommendation-icon">
+        <span className="match-signal-icon">
           {candidate.status === "Reject" ? (
             <Icons.close size={22} />
           ) : candidate.status === "Review" ? (
@@ -54,14 +55,14 @@ export function ScorePanel({
             <Icons.check size={22} />
           )}
         </span>
-        <h2>Recommendation: {candidate.status}</h2>
+        <h2>Match signal: {getMatchSignalLabel(candidate.status)}</h2>
         <p>
-          {recommendationCopy} This recommendation should support, not replace,
-          human review.
+          {matchSignalCopy} This signal should support, not replace, human
+          review.
         </p>
         <WorkflowControls
           candidate={candidate}
-          onRecommendationChange={onRecommendationChange}
+          onMatchSignalChange={onMatchSignalChange}
           onStageChange={onStageChange}
         />
         <button

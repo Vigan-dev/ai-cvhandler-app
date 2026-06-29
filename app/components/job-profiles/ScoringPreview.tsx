@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { JobProfile } from "../../data/job-profiles";
 import { analyzeResumeText } from "../../utils/local-resume-analysis";
+import { getMatchSignalLabel } from "../../utils/match-signal-labels";
 
 export function ScoringPreview({
   profile,
@@ -50,7 +51,7 @@ export function ScoringPreview({
             className={`status-badge status-${scoringPreview.candidate.status.toLowerCase()}`}
           >
             <span aria-hidden="true" />
-            {scoringPreview.candidate.status} ·{" "}
+            {getMatchSignalLabel(scoringPreview.candidate.status)} -{" "}
             {scoringPreview.candidate.score}
           </span>
         )}

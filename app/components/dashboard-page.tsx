@@ -57,7 +57,7 @@ export function DashboardPage() {
       tone: "blue",
     },
     {
-      label: "Hire recommendations",
+      label: "Strong matches",
       value: metrics.hireCount.toString(),
       detail: `${metrics.shortlistRate.toFixed(0)}% of profiles`,
       icon: Icons.users,
