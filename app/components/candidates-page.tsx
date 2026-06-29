@@ -138,11 +138,8 @@ export function CandidatesPage() {
 
       <section className="candidate-summary-strip">
         <div><span>Top match</span><strong>{topScore}</strong><small>/100</small></div>
-        <i />
         <div><span>Recommended to hire</span><strong>{hireCount}</strong><small>candidates</small></div>
-        <i />
         <div><span>Average score</span><strong>{averageScore}</strong><small>/100</small></div>
-        <i />
         <div><span>Needs review</span><strong>{reviewCount}</strong><small>candidates</small></div>
       </section>
 
