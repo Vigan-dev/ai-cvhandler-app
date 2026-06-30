@@ -3,7 +3,7 @@ import { AppShell } from "./components/app-shell";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TalentLens — Local CV Intelligence",
+  title: "CV-Handler - Local CV Analysis",
   description:
     "Browser-local CV analysis and candidate management without remote storage.",
 };

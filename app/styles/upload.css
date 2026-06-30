@@ -19,16 +19,18 @@
   justify-content: center;
   padding: 42px;
   text-align: center;
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  background: var(--surface);
   border: 1px dashed color-mix(in srgb, var(--brand) 52%, var(--border));
   border-radius: 10px;
-  transition: background-color .12s ease, border-color .12s ease;
+  transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
 }
 
 .dropzone:hover,
 .dropzone.is-dragging {
   background: var(--brand-soft);
   border-color: var(--brand);
+  box-shadow: 0 12px 30px rgba(20, 24, 28, .07);
+  transform: translateY(-2px);
 }
 
 .dropzone-icon {
@@ -63,6 +65,7 @@
   border: 0;
   font-weight: 650;
   cursor: pointer;
+  transition: color .16s ease;
 }
 
 .dropzone p button:hover {
@@ -149,10 +152,15 @@
   gap: 12px;
   padding: 12px;
   border-bottom: 1px solid var(--border);
+  transition: background-color .16s ease;
 }
 
 .upload-row:last-child {
   border-bottom: 0;
+}
+
+.upload-row:hover {
+  background: var(--surface-soft);
 }
 
 .upload-file-icon {
@@ -300,7 +308,7 @@
 
 .upload-sidebar .card {
   padding: 16px;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  background: var(--surface);
 }
 
 .upload-sidebar h2 {
@@ -388,6 +396,13 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
   cursor: pointer;
+  transition: background-color .16s ease, border-color .16s ease, transform .16s ease;
+}
+
+.upload-job-selector:hover {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
 }
 
 .upload-job-selector span {
@@ -454,6 +469,12 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
   cursor: pointer;
+  transition: background-color .16s ease, border-color .16s ease;
+}
+
+.privacy-checkbox:hover {
+  background: var(--surface-soft);
+  border-color: var(--border-strong);
 }
 
 .privacy-checkbox input {

@@ -96,9 +96,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <button className="sidebar-backdrop" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />
       )}
       <aside className={`sidebar ${mobileOpen ? "is-open" : ""}`}>
-        <Link href="/" className="brand" aria-label="TalentLens home" onClick={() => setMobileOpen(false)}>
+        <Link href="/" className="brand" aria-label="CV-Handler home" onClick={() => setMobileOpen(false)}>
           <Image className="brand-logo" src="/logo.svg" alt="" width={36} height={36} priority />
-          <span>TalentLens</span>
+          <span>CV-Handler</span>
         </Link>
 
         <nav className="main-nav" aria-label="Primary navigation">
@@ -130,8 +130,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/analytics">View usage</Link>
           </div>
           <Link href="/analytics" className="profile-switcher">
-            <span className="avatar avatar-violet">VL</span>
-            <span className="profile-copy"><strong>Vigan Labs</strong><small>Recruiting team</small></span>
+            <span className="avatar avatar-violet">CV</span>
+            <span className="profile-copy"><strong>CV analysis</strong><small>Local workspace</small></span>
             <Icons.arrowRight size={16} />
           </Link>
         </div>

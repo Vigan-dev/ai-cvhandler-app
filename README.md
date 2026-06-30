@@ -1,4 +1,4 @@
-# TalentLens Frontend
+# CV-Handler Frontend
 
 Next.js application for browser-local CV analysis and candidate management.
 

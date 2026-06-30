@@ -13,7 +13,7 @@ export const WORKSPACE_BACKUP_VERSION = WORKSPACE_SCHEMA_VERSION;
 export { WORKSPACE_PREFERENCE_KEYS };
 
 export type WorkspaceBackup = {
-  product: "TalentLens";
+  product: "CV-Handler";
   schemaVersion: typeof WORKSPACE_BACKUP_VERSION;
   exportedAt: string;
   data: {
@@ -27,7 +27,7 @@ export type WorkspaceBackup = {
 
 export function createWorkspaceBackup(input: WorkspaceBackup["data"]) {
   return {
-    product: "TalentLens",
+    product: "CV-Handler",
     schemaVersion: WORKSPACE_BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
     data: input,
@@ -49,18 +49,18 @@ export function parseWorkspaceBackup(value: string): WorkspaceBackup {
 
   if (
     !isRecord(parsed) ||
-    parsed.product !== "TalentLens" ||
+    !isSupportedBackupProduct(parsed.product) ||
     !isSupportedBackupVersion(parsed.schemaVersion) ||
     typeof parsed.exportedAt !== "string" ||
     !isRecord(parsed.data)
   ) {
     throw new Error(
-      "This file is not a compatible TalentLens workspace backup.",
+      "This file is not a compatible CV-Handler workspace backup.",
     );
   }
 
   const migrated = {
-    product: "TalentLens",
+    product: "CV-Handler",
     schemaVersion: WORKSPACE_BACKUP_VERSION,
     exportedAt: parsed.exportedAt,
     data: migrateBackupData(parsed.data),
@@ -74,7 +74,7 @@ export function parseWorkspaceBackup(value: string): WorkspaceBackup {
     !isRecord(migrated.data.preferences)
   ) {
     throw new Error(
-      "This file is not a compatible TalentLens workspace backup.",
+      "This file is not a compatible CV-Handler workspace backup.",
     );
   }
 
@@ -123,6 +123,10 @@ function migrateBackupData(data: Record<string, unknown>): WorkspaceBackup["data
 
 function isSupportedBackupVersion(value: unknown) {
   return value === undefined || value === 1 || value === WORKSPACE_BACKUP_VERSION;
+}
+
+function isSupportedBackupProduct(value: unknown) {
+  return value === "CV-Handler" || value === "TalentLens";
 }
 
 function getSelectedJobId(value: unknown, jobProfiles: JobProfile[]) {

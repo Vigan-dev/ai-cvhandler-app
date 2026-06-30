@@ -31,6 +31,7 @@ test("workspace backups round-trip through JSON", () => {
   });
   const restored = parseWorkspaceBackup(serializeWorkspaceBackup(backup));
 
+  assert.equal(restored.product, "CV-Handler");
   assert.equal(restored.schemaVersion, WORKSPACE_BACKUP_VERSION);
   assert.equal(restored.data.candidates.length, 2);
   assert.equal(restored.data.selectedJobId, defaultJobProfiles[0].id);

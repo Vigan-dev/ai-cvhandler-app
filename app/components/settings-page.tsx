@@ -196,7 +196,7 @@ export function SettingsPage() {
             <div>
               <h2>Local storage</h2>
               <p>
-                {formatBytes(storageBytes)} used by TalentLens in this browser.
+                {formatBytes(storageBytes)} used by CV-Handler in this browser.
               </p>
             </div>
           </div>
@@ -275,7 +275,7 @@ export function SettingsPage() {
             <div>
               <h2>Reset workspace</h2>
               <p>
-                Remove every TalentLens localStorage entry and return to the
+                Remove every CV-Handler localStorage entry and return to the
                 built-in demonstration state.
               </p>
             </div>
