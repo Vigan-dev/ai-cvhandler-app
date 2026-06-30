@@ -82,7 +82,7 @@ export function UploadMainCard({
 
       <div className="upload-footer">
         <span>
-          <Icons.sparkles size={16} /> Raw files are processed in memory; only
+          <Icons.lock size={16} /> Raw files are processed in memory; only
           candidate metadata is saved locally.
         </span>
         <button

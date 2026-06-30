@@ -124,7 +124,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="sidebar-bottom">
           <div className="usage-card">
-            <div className="usage-icon"><Icons.sparkles size={17} /></div>
+            <div className="usage-icon"><Icons.lock size={17} /></div>
             <div><strong>Local workspace</strong><span>{candidates.length} candidate profiles</span></div>
             <div className="usage-track"><span style={{ width: `${Math.min(100, candidates.length * 5)}%` }} /></div>
             <Link href="/analytics">View usage</Link>

@@ -1,18 +1,18 @@
 :root {
-  --background: #f6f7f9;
+  --background: #ffffff;
   --surface: #ffffff;
   --surface-raised: #ffffff;
-  --surface-soft: #f9fafb;
-  --surface-hover: #f3f4f6;
-  --text: #111827;
-  --text-soft: #4b5563;
-  --text-faint: #6b7280;
-  --border: #e5e7eb;
-  --border-strong: #d1d5db;
-  --brand: #2563eb;
-  --brand-dark: #1d4ed8;
-  --brand-soft: #eff6ff;
-  --brand-text: #1d4ed8;
+  --surface-soft: #fafafa;
+  --surface-hover: #f5f5f5;
+  --text: #161a1d;
+  --text-soft: #4f5963;
+  --text-faint: #737d86;
+  --border: #e7e9ec;
+  --border-strong: #cfd5dc;
+  --brand: #1fbf83;
+  --brand-dark: #15996a;
+  --brand-soft: #eefbf5;
+  --brand-text: #087754;
   --green: #0f766e;
   --green-soft: #ecfdf5;
   --orange: #b45309;
@@ -22,8 +22,8 @@
   --blue: var(--brand);
   --blue-soft: var(--brand-soft);
   --track: #e5e7eb;
-  --shadow: 0 1px 2px rgba(15, 23, 42, .04);
-  --shadow-popover: 0 16px 40px rgba(15, 23, 42, .14);
+  --shadow: none;
+  --shadow-popover: 0 18px 48px rgba(20, 24, 28, .12);
   --radius-card: 8px;
   --radius-control: 6px;
   --sidebar-width: 248px;
@@ -1621,4 +1621,175 @@ textarea:focus-visible {
     animation-iteration-count: 1 !important;
     transition-duration: .01ms !important;
   }
+}
+
+@media (min-width: 901px) {
+  :root {
+    --sidebar-width: 0px;
+  }
+
+  .app-shell {
+    background:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px),
+      var(--background);
+    background-size: 24px 24px;
+    background-position: -1px -1px;
+  }
+
+  .sidebar {
+    position: sticky;
+    inset: auto;
+    top: 0;
+    width: min(1060px, calc(100% - 48px));
+    height: 80px;
+    flex-direction: row;
+    align-items: center;
+    gap: 28px;
+    margin: 22px auto 0;
+    padding: 0 28px;
+    background: color-mix(in srgb, var(--surface) 96%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 10px 24px rgba(20, 24, 28, .07);
+  }
+
+  .brand {
+    min-height: 0;
+    padding: 0;
+    font-size: 16px;
+    white-space: nowrap;
+  }
+
+  .brand-logo {
+    width: 34px;
+    height: 34px;
+    border-radius: 6px;
+  }
+
+  .main-nav {
+    flex: 1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+  }
+
+  .nav-label,
+  .usage-card {
+    display: none;
+  }
+
+  .nav-item {
+    min-height: 38px;
+    gap: 7px;
+    padding: 0 4px;
+    color: var(--text);
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    font-size: 14px;
+    font-weight: 650;
+  }
+
+  .nav-item svg {
+    display: none;
+  }
+
+  .nav-item:hover {
+    color: var(--brand-text);
+    background: transparent;
+  }
+
+  .nav-item.active {
+    color: var(--brand-text);
+    background: transparent;
+    border: 0;
+    box-shadow: inset 0 -2px 0 var(--brand);
+  }
+
+  .nav-count {
+    min-width: 20px;
+    padding: 0 6px;
+    color: var(--text-faint);
+    background: var(--surface-soft);
+    border-color: var(--border);
+    font-size: 11px;
+  }
+
+  .sidebar-bottom {
+    margin: 0;
+  }
+
+  .profile-switcher {
+    min-height: 38px;
+    padding: 0 10px;
+    border-color: var(--border);
+    border-radius: var(--radius-control);
+  }
+
+  .profile-switcher .avatar,
+  .profile-switcher svg {
+    display: none;
+  }
+
+  .profile-copy strong {
+    font-size: 13px;
+  }
+
+  .profile-copy small {
+    display: none;
+  }
+
+  .workspace {
+    margin-left: 0;
+  }
+
+  .topbar {
+    position: relative;
+    top: auto;
+    width: min(1060px, calc(100% - 48px));
+    height: 54px;
+    margin: 12px auto 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+  }
+
+  .global-search {
+    width: min(480px, 44vw);
+    background: var(--surface);
+    box-shadow: 0 1px 0 rgba(20, 24, 28, .04);
+  }
+
+  .page-container {
+    width: min(1060px, calc(100% - 48px));
+    max-width: 1060px;
+    padding: 54px 0 72px;
+  }
+}
+
+.card,
+.stat-card {
+  box-shadow: none;
+}
+
+.button,
+.icon-button,
+.ghost-icon,
+.select-button,
+.inline-select,
+.form-grid input,
+.form-grid textarea,
+.form-grid select,
+.notes-field textarea,
+.settings-field select,
+.workflow-controls select,
+.advanced-filters select,
+.scoring-preview textarea {
+  box-shadow: none;
+}
+
+.button.primary {
+  font-weight: 720;
 }
