@@ -42,16 +42,16 @@ export function ScoreDistributionCard({
       <div className="distribution-summary">
         <span>
           <i className="high-dot" />
-          <strong>{metrics.hireCount}</strong> {getMatchSignalLabel("Hire")}
+          <strong>{metrics.hireCount}</strong> {getMatchSignalLabel("strong_match")}
         </span>
         <span>
           <i className="mid-dot" />
           <strong>{metrics.reviewCount}</strong>{" "}
-          {getMatchSignalLabel("Review")}
+          {getMatchSignalLabel("needs_review")}
         </span>
         <span>
           <i className="low-dot" />
-          <strong>{metrics.rejectCount}</strong> {getMatchSignalLabel("Reject")}
+          <strong>{metrics.rejectCount}</strong> {getMatchSignalLabel("low_evidence")}
         </span>
       </div>
     </section>

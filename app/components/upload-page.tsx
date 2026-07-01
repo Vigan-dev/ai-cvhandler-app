@@ -43,6 +43,8 @@ export function UploadPage() {
           onAddFiles={upload.addFiles}
           onClearFiles={upload.clearFiles}
           onRemoveFile={upload.removeFile}
+          onManualTextChange={upload.updateManualText}
+          onQueueManualText={upload.queueManualText}
           onAnalyzeFiles={upload.analyzeFiles}
         />
 

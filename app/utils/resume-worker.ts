@@ -1,6 +1,10 @@
 import type { JobProfile } from "../data/job-profiles.ts";
 import type { Candidate } from "../data/mock-data.ts";
-import { analyzeResumeText, extractResumeText } from "./local-resume-analysis.ts";
+import {
+  ResumeExtractionError,
+  analyzeResumeText,
+  extractResumeText,
+} from "./local-resume-analysis.ts";
 
 type ResumeWorkerRequest = {
   type: "analyze";
@@ -23,6 +27,8 @@ type ResumeWorkerResponse =
       type: "error";
       requestId: string;
       message: string;
+      reason?: string;
+      canPasteText?: boolean;
     };
 
 type WorkerScope = {
@@ -43,9 +49,9 @@ async function analyze(message: ResumeWorkerRequest) {
   if (message.type !== "analyze") return;
 
   try {
-    const text = await extractResumeText(message.file);
+    const extraction = await extractResumeText(message.file);
     const candidate = analyzeResumeText(
-      text,
+      extraction.text,
       message.sourceFile,
       message.sourceSize,
       message.jobProfile,
@@ -58,9 +64,13 @@ async function analyze(message: ResumeWorkerRequest) {
       candidate: {
         ...candidate,
         sourceFingerprint: message.sourceFingerprint,
+        extractionConfidence: extraction.confidence,
+        extractionNotes: extraction.notes,
       },
     });
   } catch (error) {
+    const extractionError =
+      error instanceof ResumeExtractionError ? error : null;
     workerScope.postMessage({
       type: "error",
       requestId: message.requestId,
@@ -68,6 +78,8 @@ async function analyze(message: ResumeWorkerRequest) {
         error instanceof Error
           ? error.message
           : "The CV could not be analyzed",
+      reason: extractionError?.reason,
+      canPasteText: extractionError?.canPasteText,
     });
   }
 }

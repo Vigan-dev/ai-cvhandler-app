@@ -17,6 +17,8 @@ export function UploadMainCard({
   onAddFiles,
   onClearFiles,
   onRemoveFile,
+  onManualTextChange,
+  onQueueManualText,
   onAnalyzeFiles,
 }: {
   files: UploadFile[];
@@ -32,6 +34,8 @@ export function UploadMainCard({
   onAddFiles: (files: FileList | null) => void;
   onClearFiles: () => void;
   onRemoveFile: (id: number) => void;
+  onManualTextChange: (id: number, text: string) => void;
+  onQueueManualText: (id: number) => void;
   onAnalyzeFiles: () => void;
 }) {
   return (
@@ -67,7 +71,7 @@ export function UploadMainCard({
             browse your files
           </button>
         </p>
-        <small>PDF, DOCX, or TXT · Up to 10 MB each · Maximum 20 files</small>
+        <small>PDF, DOCX, or TXT - Up to 10 MB each - Maximum 20 files</small>
       </div>
 
       <UploadQueue
@@ -78,6 +82,8 @@ export function UploadMainCard({
         analyzing={analyzing}
         onClearFiles={onClearFiles}
         onRemoveFile={onRemoveFile}
+        onManualTextChange={onManualTextChange}
+        onQueueManualText={onQueueManualText}
       />
 
       <div className="upload-footer">
@@ -108,6 +114,8 @@ function UploadQueue({
   analyzing,
   onClearFiles,
   onRemoveFile,
+  onManualTextChange,
+  onQueueManualText,
 }: {
   files: UploadFile[];
   completeCount: number;
@@ -116,6 +124,8 @@ function UploadQueue({
   analyzing: boolean;
   onClearFiles: () => void;
   onRemoveFile: (id: number) => void;
+  onManualTextChange: (id: number, text: string) => void;
+  onQueueManualText: (id: number) => void;
 }) {
   return (
     <>
@@ -123,7 +133,7 @@ function UploadQueue({
         <div>
           <h2>Analysis queue</h2>
           <p>
-            {files.length} files · {completeCount} analyzed
+            {files.length} files - {completeCount} analyzed
           </p>
         </div>
         {files.length > 0 && (
@@ -159,6 +169,8 @@ function UploadQueue({
               file={file}
               analyzing={analyzing}
               onRemoveFile={onRemoveFile}
+              onManualTextChange={onManualTextChange}
+              onQueueManualText={onQueueManualText}
             />
           ))
         )}
@@ -196,11 +208,17 @@ function UploadRow({
   file,
   analyzing,
   onRemoveFile,
+  onManualTextChange,
+  onQueueManualText,
 }: {
   file: UploadFile;
   analyzing: boolean;
   onRemoveFile: (id: number) => void;
+  onManualTextChange: (id: number, text: string) => void;
+  onQueueManualText: (id: number) => void;
 }) {
+  const manualTextLength = file.manualText?.trim().length ?? 0;
+
   return (
     <div className={`upload-row upload-${file.status}`}>
       <div className="upload-file-icon">
@@ -212,9 +230,35 @@ function UploadRow({
           <span>{file.size}</span>
         </div>
         {file.status === "error" ? (
-          <p className="error-text">
-            <Icons.close size={13} /> {file.error}
-          </p>
+          <div className="upload-error-block">
+            <p className="error-text">
+              <Icons.close size={13} /> {file.error}
+            </p>
+            {file.errorDetail && <p>{file.errorDetail}</p>}
+            {file.canPasteText && (
+              <div className="manual-text-fallback">
+                <label>
+                  <span>Paste readable CV text</span>
+                  <textarea
+                    value={file.manualText ?? ""}
+                    onChange={(event) =>
+                      onManualTextChange(file.id, event.target.value)
+                    }
+                    placeholder="Paste copied resume text here..."
+                    rows={4}
+                  />
+                </label>
+                <button
+                  className="button secondary"
+                  onClick={() => onQueueManualText(file.id)}
+                  disabled={analyzing || manualTextLength < 80}
+                >
+                  Analyze pasted text
+                </button>
+                <small>{manualTextLength} characters pasted</small>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="progress-row">
             <div className="progress-track">

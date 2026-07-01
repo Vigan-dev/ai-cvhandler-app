@@ -27,7 +27,12 @@ export function OverviewPanel({
             <p>Generated from text extracted in your browser</p>
           </div>
         </div>
-        <span className="confidence">Rule-based local analysis</span>
+        <div className="confidence-group" aria-label="Analysis confidence">
+          <span className="confidence">Rule-based local analysis</span>
+          <span className="confidence">
+            Extraction: {candidate.extractionConfidence ?? "Medium"}
+          </span>
+        </div>
       </div>
       <p className="summary-copy">
         {candidate.summary ??
@@ -63,7 +68,7 @@ export function OverviewPanel({
           <div>
             <h3>Why this score</h3>
             <span className="confidence-pill">
-              {candidate.analysisConfidence ?? "Medium"} confidence
+              Scoring: {candidate.analysisConfidence ?? "Medium"} confidence
             </span>
           </div>
           <ul>
@@ -71,6 +76,16 @@ export function OverviewPanel({
               <li key={reason}>{reason}</li>
             ))}
           </ul>
+          {candidate.extractionNotes?.length ? (
+            <div className="extraction-notes">
+              <h3>Extraction notes</h3>
+              <ul>
+                {candidate.extractionNotes.map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>

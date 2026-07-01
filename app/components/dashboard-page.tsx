@@ -126,7 +126,7 @@ export function DashboardPage() {
         <section className="card pipeline-card">
           <SectionHeader
             title="Candidate pipeline"
-            subtitle={`Current workflow stages · ${range}`}
+            subtitle={`Current workflow stages - ${range}`}
             action={
               <label className="inline-select">
                 <span className="sr-only">Dashboard date range</span>

@@ -83,7 +83,7 @@ export function CandidateDetailsPage({
           ? {
               ...item,
               stage: "Interview",
-              status: item.status === "Reject" ? "Review" : item.status,
+              status: item.status === "low_evidence" ? "needs_review" : item.status,
             }
           : item,
       ),
@@ -103,9 +103,9 @@ export function CandidateDetailsPage({
       stage,
       status:
         stage === "Rejected"
-          ? "Reject"
-          : selectedCandidate.status === "Reject"
-            ? "Review"
+          ? "low_evidence"
+          : selectedCandidate.status === "low_evidence"
+            ? "needs_review"
             : selectedCandidate.status,
     });
   }
@@ -114,7 +114,7 @@ export function CandidateDetailsPage({
     updateCandidate({
       status,
       stage:
-        status === "Reject"
+        status === "low_evidence"
           ? "Rejected"
           : selectedCandidate.stage === "Rejected"
             ? "Review"
@@ -235,10 +235,10 @@ function getScoreLabel(score: number) {
 }
 
 function getMatchSignalCopy(candidate: Candidate, targetRole: string) {
-  if (candidate.status === "Hire") {
+  if (candidate.status === "strong_match") {
     return `The local analysis found strong evidence aligned with the ${targetRole} requirements.`;
   }
-  if (candidate.status === "Review") {
+  if (candidate.status === "needs_review") {
     return `The profile has partial evidence for ${targetRole} and needs human review before any next step.`;
   }
   return `The profile currently has limited explicit evidence for ${targetRole}.`;

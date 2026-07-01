@@ -560,6 +560,18 @@ textarea:focus-visible {
 
 .storage-alert span {
   flex: 1;
+  display: grid;
+  gap: 4px;
+}
+
+.storage-alert strong {
+  font-size: 13px;
+}
+
+.storage-alert small {
+  color: var(--text-soft);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .storage-alert button {
@@ -1317,16 +1329,19 @@ textarea:focus-visible {
   padding: 5px 9px;
 }
 
+.status-strong_match,
 .status-hire {
   color: var(--green);
   background: var(--green-soft);
 }
 
+.status-needs_review,
 .status-review {
   color: var(--orange);
   background: var(--orange-soft);
 }
 
+.status-low_evidence,
 .status-reject {
   color: var(--red);
   background: var(--red-soft);

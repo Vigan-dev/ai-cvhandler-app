@@ -1,13 +1,13 @@
 import type { CandidateStatus } from "../data/mock-data";
 
 export const matchSignalOptions: CandidateStatus[] = [
-  "Hire",
-  "Review",
-  "Reject",
+  "strong_match",
+  "needs_review",
+  "low_evidence",
 ];
 
 export function getMatchSignalLabel(status: CandidateStatus) {
-  if (status === "Hire") return "Strong match";
-  if (status === "Review") return "Needs review";
+  if (status === "strong_match") return "Strong match";
+  if (status === "needs_review") return "Needs review";
   return "Low evidence";
 }

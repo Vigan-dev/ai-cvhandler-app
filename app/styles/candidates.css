@@ -622,6 +622,13 @@
   background: var(--green-soft);
 }
 
+.confidence-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .summary-copy {
   margin: 18px 0;
   color: var(--text-soft);
@@ -721,6 +728,13 @@
 .confidence-pill {
   color: var(--brand-text);
   background: var(--brand-soft);
+}
+
+.extraction-notes {
+  display: block !important;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
 
 .timeline {
@@ -913,11 +927,13 @@
   font-weight: 750;
 }
 
+.match-signal-needs_review .match-signal-icon,
 .match-signal-review .match-signal-icon {
   color: var(--orange);
   background: var(--orange-soft);
 }
 
+.match-signal-low_evidence .match-signal-icon,
 .match-signal-reject .match-signal-icon {
   color: var(--red);
   background: var(--red-soft);

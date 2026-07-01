@@ -241,7 +241,11 @@ function isWeights(value: unknown) {
 }
 
 function isCandidateStatus(value: unknown) {
-  return value === "Hire" || value === "Review" || value === "Reject";
+  return (
+    value === "strong_match" ||
+    value === "needs_review" ||
+    value === "low_evidence"
+  );
 }
 
 function isCandidateStage(value: unknown) {

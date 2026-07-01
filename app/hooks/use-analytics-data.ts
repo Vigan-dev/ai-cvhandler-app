@@ -93,9 +93,9 @@ export function useAnalyticsData() {
       ["Range", range],
       ["Role", selectedRole],
       ["Candidates", metrics.total],
-      [`${getMatchSignalLabel("Hire")} profiles`, metrics.hireCount],
-      [`${getMatchSignalLabel("Review")} profiles`, metrics.reviewCount],
-      [`${getMatchSignalLabel("Reject")} profiles`, metrics.rejectCount],
+      [`${getMatchSignalLabel("strong_match")} profiles`, metrics.hireCount],
+      [`${getMatchSignalLabel("needs_review")} profiles`, metrics.reviewCount],
+      [`${getMatchSignalLabel("low_evidence")} profiles`, metrics.rejectCount],
       ["Average quality", metrics.averageScore.toFixed(1)],
       ["Interview stage", metrics.interviewCount],
     ]);

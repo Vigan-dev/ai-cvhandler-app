@@ -1,6 +1,10 @@
-export type CandidateStatus = "Hire" | "Review" | "Reject";
+export type CandidateStatus =
+  | "strong_match"
+  | "needs_review"
+  | "low_evidence";
 export type CandidateStage = "New" | "Review" | "Interview" | "Rejected";
 export type AnalysisConfidence = "High" | "Medium" | "Low";
+export type ExtractionConfidence = "High" | "Medium" | "Low";
 
 export const ANALYSIS_VERSION = "local-rules-v1";
 
@@ -34,6 +38,8 @@ export type Candidate = {
   analyzedAt?: string;
   sourceSize?: string;
   analysisConfidence?: AnalysisConfidence;
+  extractionConfidence?: ExtractionConfidence;
+  extractionNotes?: string[];
   analysisVersion?: string;
   scoreReasons?: string[];
   matchedRequiredSkills?: string[];
@@ -55,7 +61,7 @@ export const candidates: Candidate[] = [
     skills: 96,
     experience: 91,
     education: 88,
-    status: "Hire",
+    status: "strong_match",
     stage: "Interview",
     submitted: "12 min ago",
     tags: ["Figma", "Design Systems", "Research"],
@@ -81,7 +87,7 @@ export const candidates: Candidate[] = [
     skills: 94,
     experience: 93,
     education: 79,
-    status: "Hire",
+    status: "strong_match",
     stage: "Review",
     submitted: "34 min ago",
     tags: ["React", "TypeScript", "Architecture"],
@@ -107,7 +113,7 @@ export const candidates: Candidate[] = [
     skills: 89,
     experience: 86,
     education: 84,
-    status: "Review",
+    status: "needs_review",
     stage: "Review",
     submitted: "1 hr ago",
     tags: ["Strategy", "Analytics", "B2B SaaS"],
@@ -133,7 +139,7 @@ export const candidates: Candidate[] = [
     skills: 86,
     experience: 78,
     education: 92,
-    status: "Review",
+    status: "needs_review",
     stage: "New",
     submitted: "2 hrs ago",
     tags: ["Python", "ML", "SQL"],
@@ -159,7 +165,7 @@ export const candidates: Candidate[] = [
     skills: 81,
     experience: 72,
     education: 85,
-    status: "Review",
+    status: "needs_review",
     stage: "New",
     submitted: "Yesterday",
     tags: ["Research", "Usability", "B2C"],
@@ -185,7 +191,7 @@ export const candidates: Candidate[] = [
     skills: 68,
     experience: 64,
     education: 55,
-    status: "Reject",
+    status: "low_evidence",
     stage: "Rejected",
     submitted: "Yesterday",
     tags: ["Node.js", "Postgres", "AWS"],

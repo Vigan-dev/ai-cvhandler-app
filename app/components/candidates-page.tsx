@@ -91,8 +91,8 @@ export function CandidatesPage() {
   const activeAdvancedFilters =
     Number(minimumScore > 0) + Number(selectedRole !== "All roles");
   const topScore = Math.max(0, ...candidates.map((candidate) => candidate.score));
-  const strongMatchCount = candidates.filter((candidate) => candidate.status === "Hire").length;
-  const reviewCount = candidates.filter((candidate) => candidate.status === "Review").length;
+  const strongMatchCount = candidates.filter((candidate) => candidate.status === "strong_match").length;
+  const reviewCount = candidates.filter((candidate) => candidate.status === "needs_review").length;
   const averageScore = candidates.length
     ? (
         candidates.reduce((total, candidate) => total + candidate.score, 0) /
@@ -213,7 +213,7 @@ export function CandidatesPage() {
                     <td>
                       <Link className="candidate-cell" href={`/candidates/${candidate.id}`}>
                         <Avatar candidate={candidate} size="small" />
-                        <span><strong>{candidate.name}</strong><small>{candidate.role} · {candidate.location}</small></span>
+                        <span><strong>{candidate.name}</strong><small>{candidate.role} - {candidate.location}</small></span>
                       </Link>
                     </td>
                     <td><div className="score-cell"><ScoreRing value={candidate.score} size={42} /><strong>{candidate.score}</strong><small>/100</small></div></td>
@@ -255,9 +255,9 @@ function MatchBar({ value }: { value: number }) {
 function isStatusFilter(value: unknown): value is "All" | CandidateStatus {
   return (
     value === "All" ||
-    value === "Hire" ||
-    value === "Review" ||
-    value === "Reject"
+    value === "strong_match" ||
+    value === "needs_review" ||
+    value === "low_evidence"
   );
 }
 

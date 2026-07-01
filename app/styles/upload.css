@@ -236,6 +236,68 @@
   font-size: 12px;
 }
 
+.upload-error-block {
+  display: grid;
+  gap: 7px;
+}
+
+.upload-error-block > p:not(.error-text) {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.manual-text-fallback {
+  display: grid;
+  gap: 8px;
+  max-width: 620px;
+  padding: 10px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.manual-text-fallback label {
+  display: grid;
+  gap: 6px;
+}
+
+.manual-text-fallback label span {
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.manual-text-fallback textarea {
+  width: 100%;
+  min-height: 92px;
+  resize: vertical;
+  padding: 9px 10px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.manual-text-fallback textarea:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  outline: none;
+}
+
+.manual-text-fallback .button {
+  width: fit-content;
+}
+
+.manual-text-fallback small {
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
 .upload-status-icon {
   width: 26px;
   height: 26px;

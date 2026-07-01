@@ -7,6 +7,7 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import { useCandidates } from "../hooks/use-candidates";
 import { useNotifications } from "../hooks/use-notifications";
 import { usePersistentState } from "../hooks/use-persistent-state";
+import type { StorageRecoveryDetail } from "../utils/local-storage-guard";
 import { Icons } from "./icons";
 
 const navItems = [
@@ -35,7 +36,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useNotifications();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [storageError, setStorageError] = useState(false);
+  const [storageError, setStorageError] =
+    useState<StorageRecoveryDetail | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
 
@@ -70,8 +72,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    function handleStorageFailure() {
-      setStorageError(true);
+    function handleStorageFailure(event: Event) {
+      const detail =
+        event instanceof CustomEvent && event.detail
+          ? (event.detail as StorageRecoveryDetail)
+          : {
+              message:
+                "Local changes could not be saved because browser storage is unavailable or full.",
+              steps: [
+                "Export a workspace backup from Settings before deleting data.",
+                "Delete older candidate profiles or shorten the retention window.",
+                "Free browser storage for this site, then retry the action.",
+              ],
+            };
+      setStorageError(detail);
     }
 
     window.addEventListener("talentlens-storage-error", handleStorageFailure);
@@ -204,8 +218,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main id="main-content" className="page-container page-transition" key={pathname}>{children}</main>
         {storageError && (
           <div className="storage-alert" role="alert">
-            <span>Local changes could not be saved. Check browser storage permissions or available space.</span>
-            <button aria-label="Dismiss storage warning" onClick={() => setStorageError(false)}>
+            <span>
+              <strong>{storageError.message}</strong>
+              <small>{storageError.steps.join(" ")}</small>
+            </span>
+            <button aria-label="Dismiss storage warning" onClick={() => setStorageError(null)}>
               <Icons.close size={16} />
             </button>
           </div>

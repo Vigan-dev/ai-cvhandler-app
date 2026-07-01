@@ -47,9 +47,9 @@ export function ScorePanel({
         className={`card match-signal-card match-signal-${candidate.status.toLowerCase()}`}
       >
         <span className="match-signal-icon">
-          {candidate.status === "Reject" ? (
+          {candidate.status === "low_evidence" ? (
             <Icons.close size={22} />
-          ) : candidate.status === "Review" ? (
+          ) : candidate.status === "needs_review" ? (
             "!"
           ) : (
             <Icons.check size={22} />

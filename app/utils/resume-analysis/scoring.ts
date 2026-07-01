@@ -107,10 +107,10 @@ export function analyzeResumeText(
   );
   const status: CandidateStatus =
     score >= 80 && requiredRatio >= strictness.hireRequiredRatio
-      ? "Hire"
+      ? "strong_match"
       : score >= 58 && requiredRatio >= strictness.reviewRequiredRatio
-        ? "Review"
-        : "Reject";
+        ? "needs_review"
+        : "low_evidence";
   const analysisConfidence = getAnalysisConfidence({
     email,
     experienceYears,
@@ -167,7 +167,7 @@ export function analyzeResumeText(
     experience,
     education,
     status,
-    stage: status === "Reject" ? "Rejected" : "New",
+    stage: status === "low_evidence" ? "Rejected" : "New",
     submitted: "Just now",
     tags: tags.slice(0, 6),
     strengths,
@@ -240,7 +240,7 @@ function findRole(lines: string[], fallback: string) {
     lines.find(
       (line) =>
         line.length <= 80 &&
-        /(engineer|designer|manager|scientist|developer|researcher|analyst|architect|specialist|director|ingeniero|ingénieur|entwickler|développeur|desarrollador|diseñador|chercheur|forscher|daten|producto|produit)/i.test(
+        /(engineer|designer|manager|scientist|developer|researcher|analyst|architect|specialist|director|ingeniero|ingenieur|entwickler|developpeur|desarrollador|disenador|chercheur|forscher|daten|producto|produit)/i.test(
           line,
         ),
     ) ?? fallback
@@ -252,7 +252,7 @@ function findLocation(lines: string[]) {
     lines.find(
       (line) =>
         line.length <= 70 &&
-        (/\b(remote|hybrid|remoto|remotely|à distance|hybride)\b/i.test(line) ||
+        (/\b(remote|hybrid|remoto|remotely|a distance|hybride)\b/i.test(line) ||
           /\b[A-Za-z .'-]+,\s*[A-Z]{2}\b/.test(line)),
     ) ?? "Location not specified"
   );
@@ -261,7 +261,7 @@ function findLocation(lines: string[]) {
 function findExperienceYears(text: string) {
   const explicit = Array.from(
     text.matchAll(
-      /(\d{1,2})\+?\s+(?:years?|yrs?|años|ans|jahre)(?:\s+(?:of|de|d'|an))?\s+(?:experience|experiencia|expérience|erfahrung)?/gi,
+      /(\d{1,2})\+?\s+(?:years?|yrs?|anos|ans|jahre)(?:\s+(?:of|de|d'|an))?\s+(?:experience|experiencia|experience|erfahrung)?/gi,
     ),
     (match) => Number(match[1]),
   );
@@ -279,7 +279,7 @@ function findExperienceYears(text: string) {
 
 function findEducation(text: string) {
   const match = text.match(
-    /(?:bachelor|master|phd|doctorate|university|college|universidad|université|universität|hochschule|licenciatura|maestr[ií]a|diplom|b\.?sc|m\.?sc|mba)[^\n]{0,100}/i,
+    /(?:bachelor|master|phd|doctorate|university|college|universidad|universite|universitat|hochschule|licenciatura|maestria|diplom|b\.?sc|m\.?sc|mba)[^\n]{0,100}/i,
   );
   return match?.[0];
 }

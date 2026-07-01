@@ -13,6 +13,11 @@ import {
   WORKSPACE_SCHEMA_STORAGE_KEY,
   WORKSPACE_SCHEMA_VERSION,
 } from "../utils/workspace-migrations";
+import {
+  assertStorageWriteFits,
+  getStorageRecoveryDetail,
+  type StorageRecoveryDetail,
+} from "../utils/local-storage-guard";
 
 type PersistentStateOptions<T> = {
   validate?: (value: unknown) => value is T;
@@ -157,11 +162,12 @@ function writeStoredValue<T>(key: string, value: T) {
   try {
     const serialized = JSON.stringify(value);
     if (localStorage.getItem(key) !== serialized) {
+      assertStorageWriteFits(key, serialized);
       localStorage.setItem(key, serialized);
     }
     recordWorkspaceSchemaVersion(key);
-  } catch {
-    notifyStorageFailure();
+  } catch (error) {
+    notifyStorageFailure(error);
   }
 }
 
@@ -173,8 +179,8 @@ function recordWorkspaceSchemaVersion(key: string) {
     if (localStorage.getItem(WORKSPACE_SCHEMA_STORAGE_KEY) !== serialized) {
       localStorage.setItem(WORKSPACE_SCHEMA_STORAGE_KEY, serialized);
     }
-  } catch {
-    notifyStorageFailure();
+  } catch (error) {
+    notifyStorageFailure(error);
   }
 }
 
@@ -199,6 +205,10 @@ function isJsonEqual(left: unknown, right: unknown) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function notifyStorageFailure() {
-  window.dispatchEvent(new Event("talentlens-storage-error"));
+function notifyStorageFailure(error?: unknown) {
+  window.dispatchEvent(
+    new CustomEvent<StorageRecoveryDetail>("talentlens-storage-error", {
+      detail: getStorageRecoveryDetail(error),
+    }),
+  );
 }

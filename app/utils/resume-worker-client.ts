@@ -1,6 +1,11 @@
 import type { JobProfile } from "../data/job-profiles";
 import type { Candidate } from "../data/mock-data";
-import { analyzeResumeText, extractResumeText } from "./local-resume-analysis";
+import {
+  ResumeExtractionError,
+  analyzeResumeText,
+  buildManualExtractionResult,
+  extractResumeText,
+} from "./local-resume-analysis";
 
 type WorkerRequest = {
   type: "analyze";
@@ -23,7 +28,31 @@ type WorkerResponse =
       type: "error";
       requestId: string;
       message: string;
+      reason?: string;
+      canPasteText?: boolean;
     };
+
+export class ResumeAnalysisError extends Error {
+  reason?: string;
+  canPasteText: boolean;
+
+  constructor(
+    message: string,
+    options: { reason?: string; canPasteText?: boolean } = {},
+  ) {
+    super(message);
+    this.name = "ResumeAnalysisError";
+    this.reason = options.reason;
+    this.canPasteText = Boolean(options.canPasteText);
+  }
+}
+
+function toResumeAnalysisError(error: ResumeExtractionError) {
+  return new ResumeAnalysisError(error.message, {
+    reason: error.reason,
+    canPasteText: error.canPasteText,
+  });
+}
 
 const DEFAULT_ANALYSIS_TIMEOUT_MS = 45_000;
 
@@ -56,11 +85,26 @@ export async function analyzeResumeFileInWorker({
   timeoutMs?: number;
 }) {
   if (typeof Worker === "undefined") {
-    const text = await extractResumeText(file);
-    return {
-      ...analyzeResumeText(text, sourceFile, sourceSize, jobProfile, candidateId),
-      sourceFingerprint,
-    };
+    try {
+      const extraction = await extractResumeText(file);
+      return {
+        ...analyzeResumeText(
+          extraction.text,
+          sourceFile,
+          sourceSize,
+          jobProfile,
+          candidateId,
+        ),
+        sourceFingerprint,
+        extractionConfidence: extraction.confidence,
+        extractionNotes: extraction.notes,
+      };
+    } catch (error) {
+      if (error instanceof ResumeExtractionError) {
+        throw toResumeAnalysisError(error);
+      }
+      throw error;
+    }
   }
 
   const worker = getResumeWorker();
@@ -97,6 +141,46 @@ export async function analyzeResumeFileInWorker({
   });
 }
 
+export function analyzeResumeManualText({
+  text,
+  sourceFile,
+  sourceSize,
+  sourceFingerprint,
+  jobProfile,
+  candidateId,
+}: {
+  text: string;
+  sourceFile: string;
+  sourceSize: string;
+  sourceFingerprint: string;
+  jobProfile: JobProfile;
+  candidateId: number;
+}) {
+  let extraction;
+
+  try {
+    extraction = buildManualExtractionResult(text);
+  } catch (error) {
+    if (error instanceof ResumeExtractionError) {
+      throw toResumeAnalysisError(error);
+    }
+    throw error;
+  }
+
+  return {
+    ...analyzeResumeText(
+      extraction.text,
+      sourceFile,
+      sourceSize,
+      jobProfile,
+      candidateId,
+    ),
+    sourceFingerprint,
+    extractionConfidence: extraction.confidence,
+    extractionNotes: extraction.notes,
+  };
+}
+
 function getResumeWorker() {
   if (resumeWorker) return resumeWorker;
 
@@ -119,7 +203,12 @@ function handleWorkerMessage(event: MessageEvent<WorkerResponse>) {
     entry.resolve(event.data.candidate);
     return;
   }
-  entry.reject(new Error(event.data.message));
+  entry.reject(
+    new ResumeAnalysisError(event.data.message, {
+      reason: event.data.reason,
+      canPasteText: event.data.canPasteText,
+    }),
+  );
 }
 
 function handleWorkerError() {

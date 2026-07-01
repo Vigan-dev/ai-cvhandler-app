@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+} from "react";
 import {
   ANALYSIS_VERSION,
   candidates as initialCandidates,
@@ -15,12 +20,25 @@ export const CANDIDATES_STORAGE_KEY = "talentlens-candidates";
 
 export function useCandidates() {
   const [retentionDays, , retentionHydrated] = useRetentionDays();
-  const state = usePersistentState<Candidate[]>(
+  const [candidates, setCandidates, hydrated] = usePersistentState<Candidate[]>(
     CANDIDATES_STORAGE_KEY,
     initialCandidates,
     { validate: isCandidateArray },
   );
-  const [candidates, setCandidates, hydrated] = state;
+  const setCompactCandidates = useCallback<
+    Dispatch<SetStateAction<Candidate[]>>
+  >(
+    (action) => {
+      setCandidates((current) => {
+        const next =
+          typeof action === "function"
+            ? (action as (current: Candidate[]) => Candidate[])(current)
+            : action;
+        return next.map(compactCandidateForStorage);
+      });
+    },
+    [setCandidates],
+  );
 
   useEffect(() => {
     if (!hydrated || !retentionHydrated) return;
@@ -28,18 +46,20 @@ export function useCandidates() {
     const migrated = candidates
       .map(migrateCandidate)
       .filter((candidate) => !isExpired(candidate, retentionDays));
-    if (JSON.stringify(migrated) !== JSON.stringify(candidates)) {
-      setCandidates(migrated);
+    const compacted = migrated.map(compactCandidateForStorage);
+
+    if (JSON.stringify(compacted) !== JSON.stringify(candidates)) {
+      setCompactCandidates(compacted);
     }
   }, [
     candidates,
     hydrated,
     retentionDays,
     retentionHydrated,
-    setCandidates,
+    setCompactCandidates,
   ]);
 
-  return state;
+  return [candidates, setCompactCandidates, hydrated] as const;
 }
 
 function isExpired(candidate: Candidate, retentionDays: number) {
@@ -55,10 +75,13 @@ function isExpired(candidate: Candidate, retentionDays: number) {
 
 function migrateCandidate(candidate: Candidate): Candidate {
   if (candidate.sourceFile) {
+    const status = normalizeCandidateStatus(candidate.status);
+
     return {
       ...candidate,
+      status,
       targetRole: candidate.targetRole ?? candidate.role,
-      stage: normalizeStage(candidate.stage, candidate.status),
+      stage: normalizeStage(candidate.stage, status),
       notes: candidate.notes ?? "",
       analyzedAt: candidate.analyzedAt ?? new Date().toISOString(),
       analysisVersion: candidate.analysisVersion ?? ANALYSIS_VERSION,
@@ -67,10 +90,13 @@ function migrateCandidate(candidate: Candidate): Candidate {
 
   const demo = initialCandidates.find((item) => item.id === candidate.id);
   if (!demo) {
+    const status = normalizeCandidateStatus(candidate.status);
+
     return {
       ...candidate,
+      status,
       targetRole: candidate.targetRole ?? candidate.role,
-      stage: normalizeStage(candidate.stage, candidate.status),
+      stage: normalizeStage(candidate.stage, status),
       notes: candidate.notes ?? "",
       analysisVersion: candidate.analysisVersion ?? ANALYSIS_VERSION,
     };
@@ -78,9 +104,7 @@ function migrateCandidate(candidate: Candidate): Candidate {
 
   return {
     ...demo,
-    status: isCandidateStatus(candidate.status)
-      ? candidate.status
-      : demo.status,
+    status: normalizeCandidateStatus(candidate.status),
     stage: normalizeStage(candidate.stage, demo.status),
     notes: typeof candidate.notes === "string" ? candidate.notes : "",
     analysisVersion: candidate.analysisVersion ?? ANALYSIS_VERSION,
@@ -129,7 +153,17 @@ function isScore(value: unknown) {
 }
 
 function isCandidateStatus(value: unknown): value is CandidateStatus {
-  return value === "Hire" || value === "Review" || value === "Reject";
+  return (
+    value === "strong_match" ||
+    value === "needs_review" ||
+    value === "low_evidence"
+  );
+}
+
+function normalizeCandidateStatus(value: unknown): CandidateStatus {
+  if (value === "strong_match" || value === "Hire") return "strong_match";
+  if (value === "low_evidence" || value === "Reject") return "low_evidence";
+  return "needs_review";
 }
 
 function normalizeStage(
@@ -145,7 +179,52 @@ function normalizeStage(
     return stage;
   }
 
-  if (status === "Reject") return "Rejected";
-  if (status === "Hire") return "Review";
+  if (status === "low_evidence") return "Rejected";
+  if (status === "strong_match") return "Review";
   return "New";
+}
+
+function compactCandidateForStorage(candidate: Candidate): Candidate {
+  return {
+    ...candidate,
+    status: normalizeCandidateStatus(candidate.status),
+    summary: compactOptionalText(candidate.summary, 360),
+    tags: compactStringArray(candidate.tags, 12, 80) ?? [],
+    strengths: compactStringArray(candidate.strengths, 6, 180) ?? [],
+    weaknesses: compactStringArray(candidate.weaknesses, 6, 180) ?? [],
+    scoreReasons: compactStringArray(candidate.scoreReasons, 6, 240),
+    extractionNotes: compactStringArray(candidate.extractionNotes, 4, 220),
+    matchedRequiredSkills: compactStringArray(
+      candidate.matchedRequiredSkills,
+      40,
+      80,
+    ),
+    missingRequiredSkills: compactStringArray(
+      candidate.missingRequiredSkills,
+      40,
+      80,
+    ),
+  };
+}
+
+function compactStringArray(
+  values: string[] | undefined,
+  maxItems: number,
+  maxLength: number,
+) {
+  return values
+    ?.map((value) => value.trim())
+    .filter(Boolean)
+    .slice(0, maxItems)
+    .map((value) => compactText(value, maxLength));
+}
+
+function compactOptionalText(value: string | undefined, maxLength: number) {
+  return value ? compactText(value, maxLength) : undefined;
+}
+
+function compactText(value: string, maxLength: number) {
+  return value.length <= maxLength
+    ? value
+    : `${value.slice(0, maxLength - 1)}...`;
 }

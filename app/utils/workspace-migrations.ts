@@ -13,10 +13,11 @@ import {
   type Candidate,
   type CandidateStage,
   type CandidateStatus,
+  type ExtractionConfidence,
 } from "../data/mock-data.ts";
 import type { WorkspaceNotification } from "../hooks/use-notifications";
 
-export const WORKSPACE_SCHEMA_VERSION = 2;
+export const WORKSPACE_SCHEMA_VERSION = 3;
 export const WORKSPACE_SCHEMA_STORAGE_KEY = "talentlens-workspace-schema-version";
 
 export const WORKSPACE_STORAGE_KEYS = {
@@ -36,6 +37,7 @@ export const WORKSPACE_STORAGE_KEYS = {
   pipelineRange: "talentlens-pipeline-range",
   privacyAcknowledged: "talentlens-privacy-acknowledged",
   retentionDays: "talentlens-retention-days",
+  lastBackupAt: "talentlens-last-backup-at",
 } as const;
 
 export const WORKSPACE_PREFERENCE_KEYS = [
@@ -51,6 +53,7 @@ export const WORKSPACE_PREFERENCE_KEYS = [
   WORKSPACE_STORAGE_KEYS.pipelineRange,
   WORKSPACE_STORAGE_KEYS.privacyAcknowledged,
   WORKSPACE_STORAGE_KEYS.retentionDays,
+  WORKSPACE_STORAGE_KEYS.lastBackupAt,
 ] as const;
 
 export type WorkspaceMigrationResult = {
@@ -98,7 +101,10 @@ function migrateByKey(key: string, value: unknown) {
     case WORKSPACE_STORAGE_KEYS.analyticsRole:
       return typeof value === "string" ? value : key.includes("role") ? "All roles" : "";
     case WORKSPACE_STORAGE_KEYS.candidateStatus:
-      return isCandidateStatus(value) || value === "All" ? value : "All";
+      if (value === "All") return value;
+      return isCandidateStatusLike(value)
+        ? normalizeCandidateStatus(value)
+        : "All";
     case WORKSPACE_STORAGE_KEYS.candidateView:
       if (value === "cards" || value === "table") return value;
       if (value === "list") return "table";
@@ -114,6 +120,8 @@ function migrateByKey(key: string, value: unknown) {
       return typeof value === "boolean" ? value : false;
     case WORKSPACE_STORAGE_KEYS.retentionDays:
       return migrateRetentionDays(value);
+    case WORKSPACE_STORAGE_KEYS.lastBackupAt:
+      return typeof value === "string" ? value : null;
     case WORKSPACE_SCHEMA_STORAGE_KEY:
       return WORKSPACE_SCHEMA_VERSION;
     default:
@@ -170,6 +178,8 @@ function migrateCandidate(value: unknown, index: number): Candidate | null {
     analyzedAt: optionalString(value.analyzedAt),
     sourceSize: optionalString(value.sourceSize),
     analysisConfidence: normalizeAnalysisConfidence(value.analysisConfidence),
+    extractionConfidence: normalizeExtractionConfidence(value.extractionConfidence),
+    extractionNotes: stringArray(value.extractionNotes),
     analysisVersion: stringOr(value.analysisVersion, ANALYSIS_VERSION),
     scoreReasons: stringArray(value.scoreReasons),
     matchedRequiredSkills: stringArray(value.matchedRequiredSkills),
@@ -268,8 +278,9 @@ function normalizeStrictness(value: unknown): RequiredSkillStrictness {
 }
 
 function normalizeCandidateStatus(value: unknown): CandidateStatus {
-  if (isCandidateStatus(value)) return value;
-  return "Review";
+  if (value === "strong_match" || value === "Hire") return "strong_match";
+  if (value === "low_evidence" || value === "Reject") return "low_evidence";
+  return "needs_review";
 }
 
 function normalizeCandidateStage(
@@ -284,14 +295,21 @@ function normalizeCandidateStage(
   ) {
     return value;
   }
-  if (status === "Reject") return "Rejected";
-  if (status === "Hire") return "Review";
+  if (status === "low_evidence") return "Rejected";
+  if (status === "strong_match") return "Review";
   return "New";
 }
 
 function normalizeAnalysisConfidence(
   value: unknown,
 ): AnalysisConfidence | undefined {
+  if (value === "High" || value === "Medium" || value === "Low") return value;
+  return undefined;
+}
+
+function normalizeExtractionConfidence(
+  value: unknown,
+): ExtractionConfidence | undefined {
   if (value === "High" || value === "Medium" || value === "Low") return value;
   return undefined;
 }
@@ -310,7 +328,20 @@ function migrateRetentionDays(value: unknown) {
 }
 
 function isCandidateStatus(value: unknown): value is CandidateStatus {
-  return value === "Hire" || value === "Review" || value === "Reject";
+  return (
+    value === "strong_match" ||
+    value === "needs_review" ||
+    value === "low_evidence"
+  );
+}
+
+function isCandidateStatusLike(value: unknown) {
+  return (
+    isCandidateStatus(value) ||
+    value === "Hire" ||
+    value === "Review" ||
+    value === "Reject"
+  );
 }
 
 function isCandidateSort(value: unknown) {

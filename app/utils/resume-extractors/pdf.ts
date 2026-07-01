@@ -1,9 +1,26 @@
 import { decompress, normalizeText } from "./shared.ts";
+import {
+  ResumeExtractionError,
+  type ResumeExtractionResult,
+} from "./types.ts";
 
-export async function extractPdfText(bytes: Uint8Array) {
+export async function extractPdfText(
+  bytes: Uint8Array,
+): Promise<ResumeExtractionResult> {
   const source = new TextDecoder("latin1").decode(bytes);
   if (!source.includes("%%EOF")) {
-    throw new Error("This PDF appears to be incomplete or corrupted");
+    throw new ResumeExtractionError(
+      "This PDF appears to be incomplete or corrupted.",
+      "The PDF end marker is missing, so the browser parser cannot trust the file structure.",
+    );
+  }
+
+  const scanRisk = getLikelyScannedPdfReason(source);
+  if (scanRisk) {
+    throw new ResumeExtractionError(
+      "This PDF looks scanned or image-based.",
+      scanRisk,
+    );
   }
 
   const chunks = [source];
@@ -39,13 +56,50 @@ export async function extractPdfText(bytes: Uint8Array) {
     .flatMap((chunk) => extractPdfTextOperators(chunk))
     .join("\n");
 
-  if (normalizeText(extracted).length < 80) {
-    throw new Error(
-      "No readable PDF text was found. Scanned PDFs require OCR, which is not available in browser-only mode.",
+  const normalized = normalizeText(extracted);
+  if (normalized.length < 80) {
+    throw new ResumeExtractionError(
+      "No readable PDF text was found.",
+      `Only ${normalized.length} readable characters were found after checking PDF text operators. Scanned PDFs require OCR, which is not available in browser-only mode.`,
     );
   }
 
-  return normalizeText(extracted);
+  return {
+    text: normalized,
+    confidence:
+      normalized.length >= 1_200
+        ? "High"
+        : normalized.length >= 350
+          ? "Medium"
+          : "Low",
+    notes: [
+      `PDF text extraction: ${normalized.length.toLocaleString()} readable characters found.`,
+    ],
+  };
+}
+
+function getLikelyScannedPdfReason(source: string) {
+  const imageCount = countMatches(source, /\/Subtype\s*\/Image\b/g);
+  const hasTextLayerSignals =
+    /\/Font\b|\/ToUnicode\b|\/Type0\b|\/TrueType\b|\/CIDFont/i.test(source);
+  const visibleTextOperators = countMatches(
+    source,
+    /\b(?:Tj|TJ|Tf|BT|ET)\b/g,
+  );
+
+  if (imageCount >= 1 && !hasTextLayerSignals && visibleTextOperators < 2) {
+    return [
+      `The PDF contains ${imageCount} image object${imageCount === 1 ? "" : "s"}`,
+      "but no clear font or text-layer signals.",
+      "It was likely scanned from paper or exported as images.",
+    ].join(" ");
+  }
+
+  return "";
+}
+
+function countMatches(source: string, pattern: RegExp) {
+  return source.match(pattern)?.length ?? 0;
 }
 
 function extractPdfTextOperators(source: string) {

@@ -31,6 +31,7 @@ test("candidate migration adds missing modern fields", () => {
 
   assert.equal(result.migrated, true);
   assert.equal(candidates[0].id, 42);
+  assert.equal(candidates[0].status, "strong_match");
   assert.equal(candidates[0].stage, "Review");
   assert.equal(candidates[0].analysisVersion, ANALYSIS_VERSION);
   assert.equal(candidates[0].notes, "");

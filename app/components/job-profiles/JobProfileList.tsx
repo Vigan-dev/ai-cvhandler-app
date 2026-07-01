@@ -28,7 +28,7 @@ export function JobProfileList({
           >
             <strong>{profile.name}</strong>
             <small>
-              {profile.requiredSkills.length} required skills ·{" "}
+              {profile.requiredSkills.length} required skills -{" "}
               {profile.minimumExperienceYears}+ years
             </small>
           </button>

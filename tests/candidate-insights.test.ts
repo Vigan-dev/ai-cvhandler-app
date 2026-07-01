@@ -16,7 +16,7 @@ test("candidate metrics are derived from current candidate data", () => {
   assert.equal(metrics.total, candidates.length);
   assert.equal(
     metrics.hireCount,
-    candidates.filter((candidate) => candidate.status === "Hire").length,
+    candidates.filter((candidate) => candidate.status === "strong_match").length,
   );
   assert.equal(
     metrics.interviewCount,

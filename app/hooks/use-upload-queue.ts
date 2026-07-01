@@ -9,7 +9,11 @@ import {
 import type { JobProfile } from "../data/job-profiles";
 import type { Candidate } from "../data/mock-data";
 import type { AnalysisResult, UploadFile } from "../components/upload/types";
-import { analyzeResumeFileInWorker } from "../utils/resume-worker-client";
+import {
+  ResumeAnalysisError,
+  analyzeResumeFileInWorker,
+  analyzeResumeManualText,
+} from "../utils/resume-worker-client";
 import { useCandidates } from "./use-candidates";
 import { useNotifications } from "./use-notifications";
 
@@ -76,7 +80,7 @@ export function useUploadQueue({
   ).length;
   const canAnalyze =
     !state.analyzing &&
-    queuedCount > 0 &&
+    state.files.some(canAnalyzeUploadFile) &&
     Boolean(selectedJob) &&
     privacyAcknowledged;
 
@@ -115,7 +119,7 @@ export function useUploadQueue({
   }
 
   async function analyzeFiles() {
-    const pending = state.files.filter((file) => file.status === "queued");
+    const pending = state.files.filter(canAnalyzeUploadFile);
     if (!pending.length || !selectedJob || !privacyAcknowledged) return;
 
     dispatch({ type: "START_ANALYSIS" });
@@ -165,6 +169,42 @@ export function useUploadQueue({
     dispatch({ type: "CLEAR_QUEUE" });
   }
 
+  function updateManualText(id: number, manualText: string) {
+    dispatch({
+      type: "UPDATE_FILE",
+      id,
+      updates: { manualText },
+    });
+  }
+
+  function queueManualText(id: number) {
+    const file = state.files.find((item) => item.id === id);
+    const textLength = file?.manualText?.trim().length ?? 0;
+
+    if (textLength < 80) {
+      dispatch({
+        type: "UPDATE_FILE",
+        id,
+        updates: {
+          error: "Paste at least 80 readable characters before analyzing.",
+        },
+      });
+      return;
+    }
+
+    dispatch({
+      type: "UPDATE_FILE",
+      id,
+      updates: {
+        status: "queued",
+        progress: 0,
+        error: undefined,
+        errorDetail: undefined,
+        canPasteText: true,
+      },
+    });
+  }
+
   return {
     files: state.files,
     dragging: state.dragging,
@@ -179,6 +219,8 @@ export function useUploadQueue({
     addFiles,
     clearFiles,
     removeFile,
+    updateManualText,
+    queueManualText,
     analyzeFiles,
   };
 }
@@ -286,6 +328,10 @@ function validateUploadFile(
   return checkDuplicate(file.name, fingerprint, displaySize, context);
 }
 
+function canAnalyzeUploadFile(file: UploadFile) {
+  return file.status === "queued";
+}
+
 function checkDuplicate(
   fileName: string,
   fingerprint: string,
@@ -322,11 +368,22 @@ async function analyzeQueuedFile({
   updateFile: (id: number, updates: Partial<UploadFile>) => void;
   saveCandidate: (candidate: Candidate) => void;
 }) {
+  if (item.manualText?.trim()) {
+    return analyzeManualTextFallback({
+      item,
+      selectedJob,
+      candidateId,
+      updateFile,
+      saveCandidate,
+    });
+  }
+
   if (!source) {
     updateFile(item.id, {
       status: "error",
       progress: 0,
       error: "The original file is no longer available. Add it again.",
+      canPasteText: true,
     });
     return false;
   }
@@ -336,6 +393,7 @@ async function analyzeQueuedFile({
       status: "extracting",
       progress: 25,
       error: undefined,
+      errorDetail: undefined,
     });
     updateFile(item.id, {
       status: "analyzing",
@@ -354,6 +412,7 @@ async function analyzeQueuedFile({
     updateFile(item.id, {
       status: "complete",
       progress: 100,
+      canPasteText: undefined,
     });
     return true;
   } catch (error) {
@@ -364,6 +423,63 @@ async function analyzeQueuedFile({
         error instanceof Error
           ? error.message
           : "The CV could not be analyzed",
+      errorDetail:
+        error instanceof ResumeAnalysisError ? error.reason : undefined,
+      canPasteText:
+        error instanceof ResumeAnalysisError ? error.canPasteText : false,
+    });
+    return false;
+  }
+}
+
+function analyzeManualTextFallback({
+  item,
+  selectedJob,
+  candidateId,
+  updateFile,
+  saveCandidate,
+}: {
+  item: UploadFile;
+  selectedJob: JobProfile;
+  candidateId: number;
+  updateFile: (id: number, updates: Partial<UploadFile>) => void;
+  saveCandidate: (candidate: Candidate) => void;
+}) {
+  try {
+    updateFile(item.id, {
+      status: "analyzing",
+      progress: 70,
+      error: undefined,
+      errorDetail: undefined,
+    });
+
+    const candidate = analyzeResumeManualText({
+      text: item.manualText ?? "",
+      sourceFile: item.name,
+      sourceSize: item.size,
+      sourceFingerprint: item.fingerprint,
+      jobProfile: selectedJob,
+      candidateId,
+    });
+
+    saveCandidate(candidate);
+    updateFile(item.id, {
+      status: "complete",
+      progress: 100,
+      canPasteText: undefined,
+    });
+    return true;
+  } catch (error) {
+    updateFile(item.id, {
+      status: "error",
+      progress: 0,
+      error:
+        error instanceof Error
+          ? error.message
+          : "The pasted CV text could not be analyzed",
+      errorDetail:
+        error instanceof ResumeAnalysisError ? error.reason : undefined,
+      canPasteText: true,
     });
     return false;
   }
@@ -384,7 +500,7 @@ function saveAnalyzedCandidate(
     {
       id: `analysis-${candidate.id}`,
       title: `${candidate.name} is ready for review`,
-      detail: `Local score ${candidate.score} · ${candidate.targetRole}`,
+      detail: `Local score ${candidate.score} - ${candidate.targetRole}`,
       href: `/candidates/${candidate.id}`,
       read: false,
       createdAt: new Date().toISOString(),

@@ -5,7 +5,9 @@ import {
   normalizeWeights,
 } from "../app/data/job-profiles.ts";
 import {
+  ResumeExtractionError,
   analyzeResumeText,
+  extractResumeText,
   matchesSkill,
 } from "../app/utils/local-resume-analysis.ts";
 import { ANALYSIS_VERSION } from "../app/data/mock-data.ts";
@@ -34,6 +36,44 @@ test("skill matching respects word boundaries and aliases", () => {
     ]),
     true,
   );
+});
+
+test("PDF extraction reports likely scanned files before scoring", async () => {
+  const scannedPdf = new File(
+    [
+      "%PDF-1.7\n1 0 obj\n<< /Type /XObject /Subtype /Image /Width 100 /Height 100 >>\nendobj\n%%EOF",
+    ],
+    "scanned.pdf",
+    { type: "application/pdf" },
+  );
+
+  await assert.rejects(
+    () => extractResumeText(scannedPdf),
+    (error) =>
+      error instanceof ResumeExtractionError &&
+      error.message.includes("scanned") &&
+      error.reason.includes("no clear font or text-layer signals"),
+  );
+});
+
+test("TXT extraction returns confidence separate from scoring", async () => {
+  const textFile = new File(
+    [
+      `Jordan Lee
+      Staff Frontend Engineer
+      10 years of React and TypeScript architecture experience.
+      Built accessible design systems and improved performance by 42%.
+      BSc Computer Science.
+      `.repeat(10),
+    ],
+    "jordan.txt",
+    { type: "text/plain" },
+  );
+
+  const extraction = await extractResumeText(textFile);
+
+  assert.equal(extraction.confidence, "High");
+  assert.ok(extraction.notes[0].includes("readable characters"));
 });
 
 test("weight normalization always produces a 100 percent total", () => {
@@ -91,7 +131,7 @@ test("profile scoring rewards explicit role evidence", () => {
   assert.ok(strong.matchedRequiredSkills?.includes("React"));
   assert.ok(strong.matchedRequiredSkills?.includes("TypeScript"));
   assert.equal(strong.targetJobId, frontendProfile.id);
-  assert.equal(weak.status, "Reject");
+  assert.equal(weak.status, "low_evidence");
   assert.equal(strong.analysisVersion, ANALYSIS_VERSION);
 });
 
@@ -111,7 +151,7 @@ test("custom aliases reduce false negatives", () => {
   );
 
   assert.ok(candidate.matchedRequiredSkills?.includes("TypeScript"));
-  assert.equal(candidate.status, "Hire");
+  assert.equal(candidate.status, "strong_match");
 });
 
 test("strict required skills reject thin matches even with seniority", () => {
@@ -126,7 +166,7 @@ test("strict required skills reject thin matches even with seniority", () => {
     103,
   );
 
-  assert.equal(candidate.status, "Reject");
+  assert.equal(candidate.status, "low_evidence");
   assert.ok(candidate.missingRequiredSkills?.includes("React"));
   assert.ok(candidate.missingRequiredSkills?.includes("TypeScript"));
 });
@@ -142,5 +182,5 @@ test("fixtures catch common false positives", () => {
 
   assert.equal(candidate.matchedRequiredSkills?.includes("JavaScript"), false);
   assert.equal(candidate.matchedRequiredSkills?.includes("TypeScript"), false);
-  assert.equal(candidate.status, "Reject");
+  assert.equal(candidate.status, "low_evidence");
 });

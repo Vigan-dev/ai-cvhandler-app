@@ -13,6 +13,9 @@ export type UploadFile = {
   progress: number;
   status: UploadStatus;
   error?: string;
+  errorDetail?: string;
+  canPasteText?: boolean;
+  manualText?: string;
 };
 
 export type AnalysisResult = {

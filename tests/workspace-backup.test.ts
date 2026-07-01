@@ -86,6 +86,7 @@ test("workspace restore migrates older backup shapes before validation", () => {
   );
 
   assert.equal(restored.schemaVersion, WORKSPACE_BACKUP_VERSION);
+  assert.equal(restored.data.candidates[0].status, "needs_review");
   assert.equal(restored.data.candidates[0].stage, "New");
   assert.equal(restored.data.selectedJobId, "legacy-role");
   assert.deepEqual(restored.data.notifications, []);

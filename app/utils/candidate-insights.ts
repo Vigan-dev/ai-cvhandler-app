@@ -26,7 +26,7 @@ export function getCandidateMetrics(candidates: Candidate[]) {
     : 0;
   const hireCount = countBy(
     candidates,
-    (candidate) => candidate.status === "Hire",
+    (candidate) => candidate.status === "strong_match",
   );
   const interviewCount = countBy(
     candidates,
@@ -39,11 +39,11 @@ export function getCandidateMetrics(candidates: Candidate[]) {
     hireCount,
     reviewCount: countBy(
       candidates,
-      (candidate) => candidate.status === "Review",
+      (candidate) => candidate.status === "needs_review",
     ),
     rejectCount: countBy(
       candidates,
-      (candidate) => candidate.status === "Reject",
+      (candidate) => candidate.status === "low_evidence",
     ),
     interviewCount,
     shortlistRate: total ? (hireCount / total) * 100 : 0,
@@ -73,7 +73,7 @@ export function getTopSkills(candidates: Candidate[], limit = 5) {
 
 export function getScoreBuckets(candidates: Candidate[]) {
   const buckets = Array.from({ length: 8 }, (_, index) => ({
-    label: `${index * 10 + 30}–${index * 10 + 39}`,
+    label: `${index * 10 + 30}-${index * 10 + 39}`,
     count: 0,
   }));
 

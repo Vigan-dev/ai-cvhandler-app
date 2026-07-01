@@ -17,12 +17,21 @@ import {
   usePrivacyAcknowledged,
   useRetentionDays,
 } from "../hooks/use-workspace-settings";
+import { usePersistentState } from "../hooks/use-persistent-state";
+import {
+  assertStorageBatchFits,
+  formatBytes,
+  getStorageRecoveryDetail,
+  getWorkspaceStorageBytes,
+  WorkspaceStorageError,
+} from "../utils/local-storage-guard";
 import {
   createWorkspaceBackup,
   parseWorkspaceBackup,
   serializeWorkspaceBackup,
   WORKSPACE_PREFERENCE_KEYS,
 } from "../utils/workspace-backup";
+import { WORKSPACE_STORAGE_KEYS } from "../utils/workspace-migrations";
 import { ConfirmationDialog } from "./confirmation-dialog";
 import { Icons } from "./icons";
 import { PageHeader } from "./ui";
@@ -37,6 +46,14 @@ export function SettingsPage() {
   const [privacyAcknowledged, setPrivacyAcknowledged] =
     usePrivacyAcknowledged();
   const [retentionDays, setRetentionDays] = useRetentionDays();
+  const [lastBackupAt, setLastBackupAt] = usePersistentState<string | null>(
+    WORKSPACE_STORAGE_KEYS.lastBackupAt,
+    null,
+    {
+      validate: (value): value is string | null =>
+        value === null || typeof value === "string",
+    },
+  );
   const [message, setMessage] = useState("");
   const [confirmation, setConfirmation] =
     useState<SettingsConfirmation | null>(null);
@@ -74,6 +91,7 @@ export function SettingsPage() {
       .slice(0, 10)}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
+    setLastBackupAt(new Date().toISOString());
     setMessage("Workspace backup downloaded.");
   }
 
@@ -84,34 +102,30 @@ export function SettingsPage() {
 
     try {
       const backup = parseWorkspaceBackup(await file.text());
-      localStorage.setItem(
-        CANDIDATES_STORAGE_KEY,
-        JSON.stringify(backup.data.candidates),
-      );
-      localStorage.setItem(
-        JOB_PROFILES_STORAGE_KEY,
-        JSON.stringify(backup.data.jobProfiles),
-      );
-      localStorage.setItem(
-        SELECTED_JOB_STORAGE_KEY,
-        JSON.stringify(backup.data.selectedJobId),
-      );
-      localStorage.setItem(
-        NOTIFICATIONS_STORAGE_KEY,
-        JSON.stringify(backup.data.notifications),
-      );
+      const entries: Array<[string, string]> = [
+        [CANDIDATES_STORAGE_KEY, JSON.stringify(backup.data.candidates)],
+        [JOB_PROFILES_STORAGE_KEY, JSON.stringify(backup.data.jobProfiles)],
+        [SELECTED_JOB_STORAGE_KEY, JSON.stringify(backup.data.selectedJobId)],
+        [NOTIFICATIONS_STORAGE_KEY, JSON.stringify(backup.data.notifications)],
+      ];
+
       WORKSPACE_PREFERENCE_KEYS.forEach((key) => {
         if (Object.hasOwn(backup.data.preferences, key)) {
-          localStorage.setItem(
-            key,
-            JSON.stringify(backup.data.preferences[key]),
-          );
+          entries.push([key, JSON.stringify(backup.data.preferences[key])]);
         }
       });
+      assertStorageBatchFits(entries);
+      entries.forEach(([key, value]) => localStorage.setItem(key, value));
       window.location.reload();
     } catch (error) {
+      const recovery =
+        error instanceof WorkspaceStorageError
+          ? getStorageRecoveryDetail(error)
+          : null;
       setMessage(
-        error instanceof Error
+        recovery
+          ? `${recovery.message} ${recovery.steps.join(" ")}`
+          : error instanceof Error
           ? error.message
           : "The workspace backup could not be restored.",
       );
@@ -185,6 +199,9 @@ export function SettingsPage() {
           <p className="settings-note">
             Restoring replaces the current workspace after validating the
             backup structure. Existing data is not merged.
+          </p>
+          <p className="settings-note">
+            {getBackupReminder(lastBackupAt, candidates.length)}
           </p>
         </section>
 
@@ -317,20 +334,29 @@ export function SettingsPage() {
   );
 }
 
-function getWorkspaceStorageBytes() {
-  if (typeof window === "undefined") return 0;
+function getBackupReminder(lastBackupAt: string | null, candidateCount: number) {
+  if (candidateCount === 0) {
+    return "Backup reminder: export after adding real candidate profiles.";
+  }
+  if (!lastBackupAt) {
+    return [
+      "Backup reminder:",
+      "export a workspace backup before clearing browser data or importing another file.",
+    ].join(" ");
+  }
 
-  return Object.keys(localStorage)
-    .filter((key) => key.startsWith("talentlens-"))
-    .reduce(
-      (total, key) =>
-        total + new Blob([key, localStorage.getItem(key) ?? ""]).size,
-      0,
-    );
-}
+  const timestamp = Date.parse(lastBackupAt);
+  if (Number.isNaN(timestamp)) {
+    return "Backup reminder: export a fresh workspace backup.";
+  }
 
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const days = Math.floor((Date.now() - timestamp) / 86_400_000);
+  if (days >= 7) {
+    return [
+      `Backup reminder: your last export was ${days} days ago.`,
+      "Export a fresh copy before large changes.",
+    ].join(" ");
+  }
+
+  return `Last backup: ${new Date(timestamp).toLocaleDateString()}.`;
 }
